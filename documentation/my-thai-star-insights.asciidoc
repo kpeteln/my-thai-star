@@ -1,0 +1,19 @@
+= My Thai Star Insights
+
+This page captures the initial "start docu" insights requested in issue #1.
+
+== Summary
+
+The repository provides a strong multi-stack reference architecture (Angular, Java, Node, .NET), but documentation and implementation have diverged over time in several areas.
+
+== Key insights
+
+* Documentation drift exists between some wiki pages and current implementation details.
+* Security-related documentation should be consolidated and kept current (authentication/token handling and secret hygiene).
+* The highest short-term value is to define canonical documentation ownership and update cadence.
+
+== Recommended next steps
+
+* Establish one canonical architecture overview page and link component-specific pages from it.
+* Prioritize updates for security and API documentation first.
+* Add a lightweight recurring documentation review in the delivery workflow.

@@ -5,6 +5,7 @@ toc::[]
 
 == User Stories
 - link:user-stories.asciidoc[User Stories]
+- link:my-thai-star-insights.asciidoc[My Thai Star insights]
 
 == Technical design
 

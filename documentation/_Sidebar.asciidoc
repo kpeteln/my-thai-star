@@ -1,6 +1,7 @@
 * link:Home.asciidoc[Wiki Home]
 ** link:agile.asciidoc[Agile]
 ** link:user-stories.asciidoc[User Stories]
+** link:my-thai-star-insights.asciidoc[My Thai Star insights]
 ** Technical design
 *** Data model
 **** link:my-thai-star-data-model.asciidoc[Data model]
