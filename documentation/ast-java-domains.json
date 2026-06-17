@@ -1,0 +1,338 @@
+{
+  "ast_version": "1.0",
+  "language": "java",
+  "framework": "Spring Boot / Devon4j",
+  "domains": ["ordermanagement", "dishmanagement", "usermanagement"],
+  "base_package": "com.devonfw.application.mtsj",
+  "files": [
+    {
+      "file_path": "ordermanagement/dataaccess/api/OrderEntity.java",
+      "packageName": "com.devonfw.application.mtsj.ordermanagement.dataaccess.api",
+      "imports": [
+        "java.util.List", "javax.persistence.Entity", "javax.persistence.FetchType",
+        "javax.persistence.JoinColumn", "javax.persistence.ManyToOne",
+        "javax.persistence.OneToMany", "javax.persistence.OneToOne",
+        "javax.persistence.Table", "javax.persistence.Transient",
+        "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api.BookingEntity",
+        "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api.InvitedGuestEntity",
+        "com.devonfw.application.mtsj.general.dataaccess.api.ApplicationPersistenceEntity",
+        "com.devonfw.application.mtsj.ordermanagement.common.api.Order"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "OrderEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "Orders" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["Order"],
+          "designPattern": "JPA Entity",
+          "fields": [
+            { "name": "booking", "type": "BookingEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idBooking)"] },
+            { "name": "invitedGuest", "type": "InvitedGuestEntity", "modifiers": ["private"], "annotations": ["@OneToOne(FetchType.EAGER)", "@JoinColumn(name=idInvitedGuest)"] },
+            { "name": "host", "type": "BookingEntity", "modifiers": ["private"], "annotations": ["@OneToOne", "@JoinColumn(name=idHost)"] },
+            { "name": "orderLines", "type": "List<OrderLineEntity>", "modifiers": ["private"], "annotations": ["@OneToMany(mappedBy=order, FetchType.EAGER)"] },
+            { "name": "serialVersionUID", "type": "long", "modifiers": ["private","static","final"], "initialValue": "1L" }
+          ],
+          "methods": [
+            { "name": "getBooking", "modifiers": ["public"], "returnType": "BookingEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idBooking)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.booking" } }] },
+            { "name": "getInvitedGuest", "modifiers": ["public"], "returnType": "InvitedGuestEntity", "parameters": [],
+              "annotations": ["@OneToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idInvitedGuest)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.invitedGuest" } }] },
+            { "name": "getOrderLines", "modifiers": ["public"], "returnType": "List<OrderLineEntity>", "parameters": [],
+              "annotations": ["@OneToMany(mappedBy=order, fetch=FetchType.EAGER)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.orderLines" } }] },
+            { "name": "getHost", "modifiers": ["public"], "returnType": "BookingEntity", "parameters": [],
+              "annotations": ["@OneToOne", "@JoinColumn(name=idHost)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.host" } }] },
+            { "name": "getBookingId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.booking" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.booking", "methodName": "getId", "arguments": [] } }
+              ] },
+            { "name": "setBookingId", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "bookingId", "type": "Long" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "bookingId" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "Assignment", "variable": "this.booking", "value": { "type": "Literal", "value": "null" } }],
+                  "elseBlock": [
+                    { "type": "VariableDeclaration", "name": "bookingEntity", "variableType": "BookingEntity",
+                      "value": { "type": "ObjectCreation", "className": "BookingEntity", "arguments": [] } },
+                    { "type": "MethodInvocation", "target": "bookingEntity", "methodName": "setId", "arguments": ["bookingId"] },
+                    { "type": "Assignment", "variable": "this.booking", "value": { "type": "VariableReference", "name": "bookingEntity" } }
+                  ] }
+              ] }
+          ],
+          "relationships": {
+            "manyToOne": ["BookingEntity (idBooking)"],
+            "oneToOne": ["InvitedGuestEntity (idInvitedGuest)", "BookingEntity (idHost)"],
+            "oneToMany": ["OrderLineEntity (mappedBy=order, EAGER)"],
+            "implements": ["Order"], "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "ordermanagement/dataaccess/api/OrderLineEntity.java",
+      "packageName": "com.devonfw.application.mtsj.ordermanagement.dataaccess.api",
+      "imports": [
+        "java.util.List", "javax.persistence.Entity", "javax.persistence.FetchType",
+        "javax.persistence.JoinColumn", "javax.persistence.JoinTable",
+        "javax.persistence.ManyToMany", "javax.persistence.ManyToOne",
+        "javax.persistence.OneToOne", "javax.persistence.Table", "javax.persistence.Transient",
+        "com.devonfw.application.mtsj.dishmanagement.dataaccess.api.DishEntity",
+        "com.devonfw.application.mtsj.dishmanagement.dataaccess.api.IngredientEntity",
+        "com.devonfw.application.mtsj.ordermanagement.common.api.OrderLine"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "OrderLineEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "OrderLine" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["OrderLine"],
+          "designPattern": "JPA Entity",
+          "fields": [
+            { "name": "order", "type": "OrderEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idOrder)"] },
+            { "name": "dish", "type": "DishEntity", "modifiers": ["private"], "annotations": ["@OneToOne(FetchType.EAGER)", "@JoinColumn(name=idDish)"] },
+            { "name": "extras", "type": "List<IngredientEntity>", "modifiers": ["private"],
+              "annotations": ["@ManyToMany(FetchType.LAZY)", "@JoinTable(name=OrderDishExtraIngredient, joinColumns=idOrderLine, inverseJoinColumns=idIngredient)"] },
+            { "name": "amount", "type": "Integer", "modifiers": ["private"] },
+            { "name": "comment", "type": "String", "modifiers": ["private"] }
+          ],
+          "methods": [
+            { "name": "getOrder", "modifiers": ["public"], "returnType": "OrderEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idOrder)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.order" } }] },
+            { "name": "getExtras", "modifiers": ["public"], "returnType": "List<IngredientEntity>", "parameters": [],
+              "annotations": ["@ManyToMany(fetch=FetchType.LAZY)", "@JoinTable(name=OrderDishExtraIngredient)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.extras" } }] },
+            { "name": "getAmount", "modifiers": ["public"], "returnType": "Integer", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.amount" } }] },
+            { "name": "getComment", "modifiers": ["public"], "returnType": "String", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.comment" } }] },
+            { "name": "getDish", "modifiers": ["public"], "returnType": "DishEntity", "parameters": [],
+              "annotations": ["@OneToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idDish)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.dish" } }] },
+            { "name": "getDishId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.dish" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.dish", "methodName": "getId", "arguments": [] } }
+              ] },
+            { "name": "setDishId", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "dishId", "type": "Long" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "dishId" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "Assignment", "variable": "this.dish", "value": { "type": "Literal", "value": "null" } }],
+                  "elseBlock": [
+                    { "type": "VariableDeclaration", "name": "dishEntity", "variableType": "DishEntity",
+                      "value": { "type": "ObjectCreation", "className": "DishEntity", "arguments": [] } },
+                    { "type": "MethodInvocation", "target": "dishEntity", "methodName": "setId", "arguments": ["dishId"] },
+                    { "type": "Assignment", "variable": "this.dish", "value": { "type": "VariableReference", "name": "dishEntity" } }
+                  ] }
+              ] }
+          ],
+          "relationships": {
+            "manyToOne": ["OrderEntity (idOrder)"],
+            "oneToOne": ["DishEntity (idDish)"],
+            "manyToMany": ["IngredientEntity (via OrderDishExtraIngredient)"],
+            "implements": ["OrderLine"], "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "dishmanagement/dataaccess/api/DishEntity.java",
+      "packageName": "com.devonfw.application.mtsj.dishmanagement.dataaccess.api",
+      "imports": [
+        "java.math.BigDecimal", "java.util.List",
+        "javax.persistence.Entity", "javax.persistence.FetchType",
+        "javax.persistence.JoinColumn", "javax.persistence.JoinTable",
+        "javax.persistence.ManyToMany", "javax.persistence.OneToOne",
+        "javax.persistence.Table", "javax.persistence.Transient",
+        "com.devonfw.application.mtsj.dishmanagement.common.api.Dish",
+        "com.devonfw.application.mtsj.general.dataaccess.api.ApplicationPersistenceEntity",
+        "com.devonfw.application.mtsj.imagemanagement.dataaccess.api.ImageEntity"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "DishEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "Dish" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["Dish"],
+          "designPattern": "JPA Entity",
+          "fields": [
+            { "name": "name", "type": "String", "modifiers": ["private"] },
+            { "name": "description", "type": "String", "modifiers": ["private"] },
+            { "name": "price", "type": "BigDecimal", "modifiers": ["private"] },
+            { "name": "image", "type": "ImageEntity", "modifiers": ["private"], "annotations": ["@OneToOne", "@JoinColumn(name=idImage)"] },
+            { "name": "extras", "type": "List<IngredientEntity>", "modifiers": ["private"],
+              "annotations": ["@ManyToMany(FetchType.LAZY)", "@JoinTable(name=DishIngredient, joinColumns=idDish, inverseJoinColumns=idIngredient)"] },
+            { "name": "categories", "type": "List<CategoryEntity>", "modifiers": ["private"],
+              "annotations": ["@ManyToMany(FetchType.LAZY)", "@JoinTable(name=DishCategory, joinColumns=idDish, inverseJoinColumns=idCategory)"] }
+          ],
+          "methods": [
+            { "name": "getName", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.name" } }] },
+            { "name": "getDescription", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.description" } }] },
+            { "name": "getPrice", "modifiers": ["public"], "returnType": "BigDecimal", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.price" } }] },
+            { "name": "getImage", "modifiers": ["public"], "returnType": "ImageEntity", "parameters": [],
+              "annotations": ["@OneToOne", "@JoinColumn(name=idImage)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.image" } }] },
+            { "name": "getExtras", "modifiers": ["public"], "returnType": "List<IngredientEntity>", "parameters": [],
+              "annotations": ["@ManyToMany(fetch=FetchType.LAZY)", "@JoinTable(name=DishIngredient)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.extras" } }] },
+            { "name": "getCategories", "modifiers": ["public"], "returnType": "List<CategoryEntity>", "parameters": [],
+              "annotations": ["@ManyToMany(fetch=FetchType.LAZY)", "@JoinTable(name=DishCategory)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.categories" } }] },
+            { "name": "getImageId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.image" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.image", "methodName": "getId", "arguments": [] } }
+              ] }
+          ],
+          "relationships": {
+            "oneToOne": ["ImageEntity (idImage)"],
+            "manyToMany": ["IngredientEntity (via DishIngredient)", "CategoryEntity (via DishCategory)"],
+            "implements": ["Dish"], "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "dishmanagement/dataaccess/api/CategoryEntity.java",
+      "packageName": "com.devonfw.application.mtsj.dishmanagement.dataaccess.api",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "CategoryEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "Category" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["Category"],
+          "fields": [
+            { "name": "name", "type": "String", "modifiers": ["private"] },
+            { "name": "description", "type": "String", "modifiers": ["private"] },
+            { "name": "showOrder", "type": "int", "modifiers": ["private"] }
+          ],
+          "methods": [
+            { "name": "getName", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.name" } }] },
+            { "name": "getDescription", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.description" } }] },
+            { "name": "getShowOrder", "modifiers": ["public"], "returnType": "int", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.showOrder" } }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "dishmanagement/dataaccess/api/IngredientEntity.java",
+      "packageName": "com.devonfw.application.mtsj.dishmanagement.dataaccess.api",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "IngredientEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "Ingredient" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["Ingredient"],
+          "fields": [
+            { "name": "name", "type": "String", "modifiers": ["private"] },
+            { "name": "description", "type": "String", "modifiers": ["private"] },
+            { "name": "price", "type": "BigDecimal", "modifiers": ["private"] }
+          ],
+          "methods": [
+            { "name": "getName", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.name" } }] },
+            { "name": "getDescription", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.description" } }] },
+            { "name": "getPrice", "modifiers": ["public"], "returnType": "BigDecimal", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.price" } }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "usermanagement/dataaccess/api/UserEntity.java",
+      "packageName": "com.devonfw.application.mtsj.usermanagement.dataaccess.api",
+      "imports": [
+        "java.util.List", "javax.persistence.Entity", "javax.persistence.FetchType",
+        "javax.persistence.JoinColumn", "javax.persistence.JoinTable",
+        "javax.persistence.ManyToMany", "javax.persistence.ManyToOne",
+        "javax.persistence.OneToMany", "javax.persistence.Table", "javax.persistence.Transient",
+        "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api.BookingEntity",
+        "com.devonfw.application.mtsj.dishmanagement.dataaccess.api.DishEntity",
+        "com.devonfw.application.mtsj.usermanagement.common.api.User"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "UserEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "User" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["User"],
+          "designPattern": "JPA Entity",
+          "fields": [
+            { "name": "username", "type": "String", "modifiers": ["private"] },
+            { "name": "password", "type": "String", "modifiers": ["private"] },
+            { "name": "email", "type": "String", "modifiers": ["private"] },
+            { "name": "secret", "type": "String", "modifiers": ["private"] },
+            { "name": "twoFactorStatus", "type": "boolean", "modifiers": ["private"] },
+            { "name": "userRole", "type": "UserRoleEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idRole)"] },
+            { "name": "bookings", "type": "List<BookingEntity>", "modifiers": ["private"], "annotations": ["@OneToMany(mappedBy=user, FetchType.EAGER)"] },
+            { "name": "favourites", "type": "List<DishEntity>", "modifiers": ["private"],
+              "annotations": ["@ManyToMany", "@JoinTable(name=UserFavourite, joinColumns=idUser, inverseJoinColumns=idDish)"] }
+          ],
+          "methods": [
+            { "name": "getUsername", "modifiers": ["public"], "returnType": "String", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.username" } }] },
+            { "name": "getPassword", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.password" } }] },
+            { "name": "getEmail", "modifiers": ["public"], "returnType": "String", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.email" } }] },
+            { "name": "getTwoFactorStatus", "modifiers": ["public"], "returnType": "boolean", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.twoFactorStatus" } }] },
+            { "name": "getUserRole", "modifiers": ["public"], "returnType": "UserRoleEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idRole)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.userRole" } }] },
+            { "name": "getFavourites", "modifiers": ["public"], "returnType": "List<DishEntity>", "parameters": [],
+              "annotations": ["@ManyToMany", "@JoinTable(name=UserFavourite)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.favourites" } }] },
+            { "name": "getBookings", "modifiers": ["public"], "returnType": "List<BookingEntity>", "parameters": [],
+              "annotations": ["@OneToMany(mappedBy=user, fetch=FetchType.EAGER)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.bookings" } }] },
+            { "name": "getUserRoleId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.userRole" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.userRole", "methodName": "getId", "arguments": [] } }
+              ] }
+          ],
+          "relationships": {
+            "manyToOne": ["UserRoleEntity (idRole)"],
+            "oneToMany": ["BookingEntity (mappedBy=user, EAGER)"],
+            "manyToMany": ["DishEntity (via UserFavourite)"],
+            "implements": ["User"], "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    }
+  ],
+  "complexity_metrics": {
+    "total_classes": 6,
+    "total_methods": 42,
+    "design_patterns": ["JPA Entity", "Repository", "Service Facade"],
+    "cross_domain_dependencies": [
+      "OrderEntity -> BookingEntity (ManyToOne)",
+      "OrderEntity -> InvitedGuestEntity (OneToOne)",
+      "OrderLineEntity -> DishEntity (OneToOne)",
+      "OrderLineEntity -> IngredientEntity (ManyToMany)",
+      "UserEntity -> BookingEntity (OneToMany)",
+      "UserEntity -> DishEntity (ManyToMany via UserFavourite)"
+    ]
+  }
+}

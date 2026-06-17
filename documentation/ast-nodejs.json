@@ -1,0 +1,542 @@
+{
+  "ast_version": "1.0",
+  "language": "typescript",
+  "framework": "NestJS + TypeORM",
+  "application": "My Thai Star Node.js Backend",
+  "files": [
+    {
+      "file_path": "src/app/app.module.ts",
+      "language": "typescript",
+      "imports": [
+        "Module from @nestjs/common",
+        "BookingModule from ./booking/booking.module",
+        "CoreModule from ./core/core.module",
+        "DishModule from ./dish/dish.module",
+        "ImageModule from ./image/image.module",
+        "OrderModule from ./order/order.module"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "NestModule", "name": "AppModule", "modifiers": ["export"],
+          "annotations": [{ "name": "@Module", "parameters": {
+            "imports": ["CoreModule", "BookingModule", "DishModule", "ImageModule", "OrderModule"],
+            "controllers": [],
+            "providers": []
+          } }]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/booking/booking.module.ts",
+      "language": "typescript",
+      "imports": [
+        "Module from @nestjs/common",
+        "TypeOrmModule from @nestjs/typeorm",
+        "BookingController from ./controllers/booking.controller",
+        "BookingRepository from ./repositories/booking.repository",
+        "InvitedGuestRepository from ./repositories/invited-guest.repository",
+        "TableRepository from ./repositories/table.repository",
+        "BookingService from ./services/booking.service",
+        "BookingMailerUseCase from ./services/use-cases/booking-mailer.use-case",
+        "CancelBookingUseCase from ./services/use-cases/cancel-booking.use-case",
+        "CreateBookingUseCase from ./services/use-cases/create-booking.use-case",
+        "GetTableUseCase from ./services/use-cases/get-table.use-case",
+        "UpdateInvitedGuestUseCase from ./services/use-cases/update-invited-guest.use-case"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "NestModule", "name": "BookingModule", "modifiers": ["export"],
+          "annotations": [{ "name": "@Module", "parameters": {
+            "controllers": ["BookingController"],
+            "providers": [
+              "CreateBookingUseCase", "UpdateInvitedGuestUseCase", "GetTableUseCase",
+              "CancelBookingUseCase", "BookingMailerUseCase", "BookingService"
+            ],
+            "imports": ["TypeOrmModule.forFeature([InvitedGuestRepository, TableRepository, BookingRepository])"],
+            "exports": ["BookingService"]
+          } }],
+          "designPattern": "Use Case / CQRS pattern within NestJS Module"
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/booking/model/entities/booking.entity.ts",
+      "language": "typescript",
+      "imports": [
+        "ApiHideProperty from @nestjs/swagger",
+        "Exclude, Expose, plainToClass, Transform from class-transformer",
+        "IsBoolean, IsDate, IsEmail, IsInt, IsOptional, IsString, MaxLength from class-validator",
+        "md5 from md5",
+        "moment from moment",
+        "Column, Entity, JoinColumn, ManyToOne, OneToMany from typeorm",
+        "User from ../../../core/user/model/entities/user.entity",
+        "Order from ../../../order/model/entities/order.entity",
+        "BaseEntity from ../../../shared/model/entities/base-entity.entity",
+        "IsFuture from ../../../shared/validators/is-future",
+        "BookingTypes from ../booking-types",
+        "IBooking from ../booking.interface",
+        "InvitedGuest from ./invited-guest.entity",
+        "Table from ./table.entity"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "Booking", "modifiers": ["export"],
+          "annotations": [
+            { "name": "@Entity", "parameters": { "name": "Booking" } },
+            { "name": "@Exclude" }
+          ],
+          "extends": "BaseEntity", "implements": ["IBooking"],
+          "designPattern": "TypeORM Entity with class-transformer/class-validator",
+          "fields": [
+            { "name": "userId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idUser', nullable: true })", "@IsInt()", "@IsOptional()", "@Expose()"] },
+            { "name": "name", "type": "string", "required": true,
+              "annotations": ["@Column('varchar', { length: 255 })", "@IsString()", "@MaxLength(255)", "@Expose()"] },
+            { "name": "bookingToken", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 60, nullable: true })", "@IsString()", "@MaxLength(60)", "@IsOptional()", "@Expose()"] },
+            { "name": "comment", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 4000, nullable: true })", "@IsString()", "@MaxLength(4000)", "@IsOptional()", "@Expose()"] },
+            { "name": "email", "type": "string", "required": true,
+              "annotations": ["@Column('varchar', { length: 255 })", "@IsString()", "@MaxLength(255)", "@IsEmail()", "@Expose()"] },
+            { "name": "bookingDate", "type": "Date", "required": true,
+              "annotations": ["@Column('datetime')", "@IsDate()", "@IsFuture(1)", "@Expose()", "@Transform(...)"] },
+            { "name": "expirationDate", "type": "Date", "optional": true,
+              "annotations": ["@Column('datetime', { nullable: true })", "@IsDate()", "@IsOptional()", "@Expose()", "@Transform(value => moment(value).unix(), { toPlainOnly: true })"] },
+            { "name": "creationDate", "type": "Date", "optional": true,
+              "annotations": ["@Column('datetime')", "@IsDate()", "@IsOptional()", "@Expose()"] },
+            { "name": "canceled", "type": "boolean", "optional": true, "initialValue": "false",
+              "annotations": ["@Column('boolean')", "@IsBoolean()", "@IsOptional()", "@Expose()"] },
+            { "name": "bookingType", "type": "number", "optional": true,
+              "annotations": ["@Column('integer', { nullable: true })", "@IsInt()", "@IsOptional()", "@Expose()"] },
+            { "name": "tableId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idTable', nullable: true })", "@IsInt()", "@IsOptional()", "@Expose()"] },
+            { "name": "orderId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idOrder', nullable: true })", "@IsInt()", "@IsOptional()", "@Expose()"] },
+            { "name": "assistants", "type": "number", "optional": true,
+              "annotations": ["@Column('integer', { nullable: true })", "@IsInt()", "@IsOptional()", "@Expose()"] },
+            { "name": "invitedGuests", "type": "InvitedGuest[]", "optional": true,
+              "annotations": ["@OneToMany(() => InvitedGuest, invited => invited.booking, { cascade: true, onDelete: 'CASCADE' })", "@ApiHideProperty()"] },
+            { "name": "table", "type": "Table", "optional": true,
+              "annotations": ["@ManyToOne(() => Table)", "@JoinColumn({ name: 'idTable' })", "@ApiHideProperty()"] },
+            { "name": "order", "type": "Order", "optional": true,
+              "annotations": ["@ManyToOne(() => Order, order => order.id, { cascade: true, onDelete: 'CASCADE' })", "@JoinColumn({ name: 'idOrder' })", "@ApiHideProperty()"] },
+            { "name": "user", "type": "User", "optional": true,
+              "annotations": ["@ManyToOne(() => User, user => user.id)", "@JoinColumn({ name: 'idUser' })", "@ApiHideProperty()"] }
+          ],
+          "methods": [
+            {
+              "name": "create", "type": "StaticMethod", "modifiers": ["static"], "returnType": "Booking",
+              "parameters": [{ "name": "booking", "type": "Partial<Booking>" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "newBooking", "variableType": "Booking",
+                  "value": { "type": "MethodInvocation", "methodName": "plainToClass", "arguments": ["Booking", "booking"] } },
+                { "type": "VariableDeclaration", "name": "bookingDate", "variableType": "moment.Moment",
+                  "value": { "type": "MethodInvocation", "methodName": "moment", "arguments": ["booking.bookingDate"] } },
+                { "type": "VariableDeclaration", "name": "now", "variableType": "moment.Moment",
+                  "value": { "type": "MethodInvocation", "methodName": "moment", "arguments": [] } },
+                { "type": "Assignment", "variable": "newBooking.bookingType",
+                  "value": { "type": "NullishCoalescing", "left": { "type": "VariableReference", "name": "newBooking.bookingType" }, "right": { "type": "MemberAccess", "target": "BookingTypes", "member": "COMMON" } } },
+                { "type": "VariableDeclaration", "name": "calculatedValues", "variableType": "Partial<Booking>",
+                  "value": { "type": "ObjectLiteral", "properties": {
+                    "bookingToken": "'CB_' + now.format('YYYYMMDD') + '_' + md5(newBooking.email + now.format('YYYYMMDDHHmmss'))",
+                    "expirationDate": "bookingDate.subtract(1, 'hour').toDate()",
+                    "canceled": "false",
+                    "creationDate": "now.toDate()"
+                  } } },
+                { "type": "MethodInvocation", "target": "Object", "methodName": "assign", "arguments": ["newBooking", "calculatedValues"] },
+                { "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "newBooking" } }
+              ]
+            }
+          ],
+          "relationships": {
+            "manyToOne": ["Table (idTable)", "Order (idOrder)", "User (idUser)"],
+            "oneToMany": ["InvitedGuest (cascade, onDelete=CASCADE)"],
+            "implements": ["IBooking"], "extends": "BaseEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/booking/model/entities/invited-guest.entity.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "InvitedGuest", "modifiers": ["export"],
+          "annotations": [{ "name": "@Entity", "parameters": { "name": "InvitedGuest" } }],
+          "extends": "BaseEntity", "implements": ["IInvitedGuest"],
+          "fields": [
+            { "name": "bookingId", "type": "number", "required": true,
+              "annotations": ["@Column('bigint', { name: 'idBooking' })", "@IsInt()", "@IsOptional()"] },
+            { "name": "guestToken", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 60, nullable: true })", "@IsString()", "@MaxLength(60)", "@IsOptional()"] },
+            { "name": "email", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 60, nullable: true })", "@IsString()", "@MaxLength(60)", "@IsOptional()"] },
+            { "name": "accepted", "type": "boolean", "optional": true,
+              "annotations": ["@Column('boolean', { nullable: true })", "@Transform(value => Boolean(value))", "@IsBoolean()", "@IsOptional()"] },
+            { "name": "modificationDate", "type": "Date", "optional": true,
+              "annotations": ["@Column('datetime', { nullable: true })", "@Transform(value => new Date(value))", "@IsDate()", "@IsOptional()"] },
+            { "name": "orderId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idOrder', nullable: true })", "@IsInt()", "@IsOptional()"] },
+            { "name": "booking", "type": "Booking", "optional": true,
+              "annotations": ["@ManyToOne(() => Booking, booking => booking.invitedGuests)", "@JoinColumn({ name: 'idBooking' })", "@ApiHideProperty()"] },
+            { "name": "order", "type": "Order", "optional": true,
+              "annotations": ["@ManyToOne(() => Order, order => order.invitedGuestId, { onDelete: 'CASCADE' })", "@JoinColumn({ name: 'idOrder' })", "@ApiHideProperty()"] }
+          ],
+          "methods": [
+            {
+              "name": "create", "type": "StaticMethod", "modifiers": ["static"], "returnType": "InvitedGuest",
+              "parameters": [{ "name": "invitedGuest", "type": "Partial<InvitedGuest>" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "now", "variableType": "moment.Moment",
+                  "value": { "type": "MethodInvocation", "methodName": "moment", "arguments": [] } },
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "methodName": "plainToClass",
+                  "arguments": ["InvitedGuest", { "type": "ObjectLiteral", "properties": {
+                    "bookingId": "invitedGuest.bookingId",
+                    "guestToken": "'GB_' + now.format('YYYYMMDD') + '_' + md5(invitedGuest.email + now.format('YYYYMMDDHHmmss'))",
+                    "modificationDate": "now.toDate()",
+                    "email": "invitedGuest.email"
+                  } }]
+                } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/booking/controllers/booking.controller.ts",
+      "language": "typescript",
+      "imports": [
+        "Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseFilters, UseGuards from @nestjs/common",
+        "AuthGuard from @nestjs/passport",
+        "ApiBearerAuth, ApiResponse, ApiTags from @nestjs/swagger",
+        "GetUser from ../../core/auth/decorators/get-user.decorator",
+        "Roles from ../../core/auth/decorators/roles.decorator",
+        "RolesGuard from ../../core/auth/guards/roles.guard",
+        "User from ../../core/user/model/entities/user.entity",
+        "BusinessLogicFilter from ../../shared/filters/business-logic.filter",
+        "BookingPage from ../model/dto/booking-page.dto",
+        "BookingSearch from ../model/dto/booking-search.dto",
+        "NewBooking from ../model/dto/new-booking.dto",
+        "Booking from ../model/entities/booking.entity",
+        "BookingService from ../services/booking.service"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "BookingController", "modifiers": ["export"],
+          "annotations": [
+            { "name": "@Controller", "parameters": { "path": "services/rest/bookingmanagement/v1" } },
+            { "name": "@ApiTags", "parameters": { "value": "Booking" } },
+            { "name": "@UseFilters", "parameters": { "filter": "BusinessLogicFilter" } }
+          ],
+          "designPattern": "REST Controller (NestJS)",
+          "constructor": {
+            "parameters": [{ "name": "bookingService", "type": "BookingService", "modifiers": ["private","readonly"] }]
+          },
+          "methods": [
+            {
+              "name": "register", "modifiers": ["public", "async"], "returnType": "Promise<Booking>",
+              "parameters": [
+                { "name": "newBooking", "type": "NewBooking", "annotations": ["@Body()"] },
+                { "name": "user", "type": "User", "optional": true, "annotations": ["@GetUser()"] }
+              ],
+              "annotations": [
+                "@Post('booking')",
+                "@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })"
+              ],
+              "body": [
+                { "type": "ReturnStatement", "value": {
+                  "type": "AwaitExpression",
+                  "expression": { "type": "MethodInvocation", "target": "this.bookingService", "methodName": "createBooking",
+                    "arguments": ["newBooking.booking", "newBooking.invitedGuests", "user"] }
+                } }
+              ]
+            },
+            {
+              "name": "searchBooking", "modifiers": ["public", "async"], "returnType": "Promise<BookingPage>",
+              "parameters": [{ "name": "search", "type": "BookingSearch", "annotations": ["@Body()"] }],
+              "annotations": [
+                "@UseGuards(AuthGuard(), RolesGuard)", "@ApiBearerAuth()",
+                "@Roles('waiter')", "@Post('booking/search')", "@HttpCode(200)",
+                "@ApiResponse({ status: HttpStatus.BAD_REQUEST })",
+                "@ApiResponse({ status: HttpStatus.FORBIDDEN })"
+              ],
+              "body": [
+                { "type": "VariableDeclaration", "name": "[bookings, totalElements]", "variableType": "[Booking[], number]",
+                  "value": { "type": "AwaitExpression",
+                    "expression": { "type": "MethodInvocation", "target": "this.bookingService", "methodName": "searchBooking", "arguments": ["search"] } } },
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "target": "BookingPage", "methodName": "fromBookings",
+                  "arguments": ["totalElements", "search.pageable", "bookings"]
+                } }
+              ]
+            },
+            {
+              "name": "acceptInvitedGuest", "modifiers": ["public", "async"], "returnType": "Promise<void>",
+              "parameters": [{ "name": "token", "type": "string", "annotations": ["@Param('token')"] }],
+              "annotations": ["@Get('invitedguest/accept/:token')", "@HttpCode(204)"],
+              "body": [
+                { "type": "AwaitExpression",
+                  "expression": { "type": "MethodInvocation", "target": "this.bookingService", "methodName": "updateInvitedGuest",
+                    "arguments": ["token", "true"] } }
+              ]
+            },
+            {
+              "name": "declineInvitedGuest", "modifiers": ["public", "async"], "returnType": "Promise<void>",
+              "parameters": [{ "name": "token", "type": "string", "annotations": ["@Param('token')"] }],
+              "annotations": ["@Get('invitedguest/decline/:token')", "@HttpCode(204)"],
+              "body": [
+                { "type": "AwaitExpression",
+                  "expression": { "type": "MethodInvocation", "target": "this.bookingService", "methodName": "updateInvitedGuest",
+                    "arguments": ["token", "false"] } }
+              ]
+            },
+            {
+              "name": "cancelBooking", "modifiers": ["public", "async"], "returnType": "Promise<void>",
+              "parameters": [{ "name": "token", "type": "string", "annotations": ["@Param('token')"] }],
+              "annotations": ["@Get('booking/cancel/:token')", "@HttpCode(204)"],
+              "body": [
+                { "type": "AwaitExpression",
+                  "expression": { "type": "MethodInvocation", "target": "this.bookingService", "methodName": "cancelBooking",
+                    "arguments": ["token"] } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/booking/services/booking.service.ts",
+      "language": "typescript",
+      "imports": [
+        "Injectable from @nestjs/common",
+        "User from ../../core/user/model/entities/user.entity",
+        "WinstonLogger from ../../shared/logger/winston.logger",
+        "BookingSearch from ../model/dto/booking-search.dto",
+        "Booking from ../model/entities/booking.entity",
+        "InvitedGuest from ../model/entities/invited-guest.entity",
+        "BookingRepository from ../repositories/booking.repository",
+        "InvitedGuestRepository from ../repositories/invited-guest.repository",
+        "CancelBookingUseCase from ./use-cases/cancel-booking.use-case",
+        "CreateBookingUseCase from ./use-cases/create-booking.use-case",
+        "UpdateInvitedGuestUseCase from ./use-cases/update-invited-guest.use-case"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "BookingService", "modifiers": ["export"],
+          "annotations": [{ "name": "@Injectable" }],
+          "designPattern": "Service / Use Case Orchestrator",
+          "constructor": {
+            "parameters": [
+              { "name": "bookingRepository", "type": "BookingRepository", "modifiers": ["private","readonly"] },
+              { "name": "invitedGuestRepository", "type": "InvitedGuestRepository", "modifiers": ["private","readonly"] },
+              { "name": "logger", "type": "WinstonLogger", "modifiers": ["private","readonly"] },
+              { "name": "createBookingUc", "type": "CreateBookingUseCase", "modifiers": ["private","readonly"] },
+              { "name": "cancelBookingUc", "type": "CancelBookingUseCase", "modifiers": ["private","readonly"] },
+              { "name": "updateInvitedGuestUc", "type": "UpdateInvitedGuestUseCase", "modifiers": ["private","readonly"] }
+            ]
+          },
+          "methods": [
+            {
+              "name": "getBookingByToken", "modifiers": ["public"], "returnType": "Promise<Booking | undefined>",
+              "parameters": [{ "name": "token", "type": "string" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["'Executing getBookingByToken. Params: token=' + token", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingRepository", "methodName": "findOne",
+                  "arguments": ["{ where: { bookingToken: token } }"] } }
+              ]
+            },
+            {
+              "name": "getInvitedGuestByToken", "modifiers": ["public"], "returnType": "Promise<InvitedGuest | undefined>",
+              "parameters": [{ "name": "token", "type": "string" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["'Executing getInvitedGuestByToken'", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.invitedGuestRepository", "methodName": "findOne",
+                  "arguments": ["{ where: { guestToken: token } }"] } }
+              ]
+            },
+            {
+              "name": "createBooking", "modifiers": ["public"], "returnType": "Promise<Booking>",
+              "parameters": [
+                { "name": "booking", "type": "Booking" },
+                { "name": "invitedGuests", "type": "InvitedGuest[]", "optional": true },
+                { "name": "user", "type": "User", "optional": true }
+              ],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["`Executing createBooking...`", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.createBookingUc", "methodName": "createBooking",
+                  "arguments": ["booking", "invitedGuests", "user"] } }
+              ]
+            },
+            {
+              "name": "searchBooking", "modifiers": ["public", "async"], "returnType": "Promise<[Booking[], number]>",
+              "parameters": [{ "name": "search", "type": "BookingSearch" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["`Executing searchBooking...`", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingRepository", "methodName": "searchBookingByCriteria",
+                  "arguments": ["search"] } }
+              ]
+            },
+            {
+              "name": "updateInvitedGuest", "modifiers": ["public"], "returnType": "Promise<void>",
+              "parameters": [{ "name": "token", "type": "string" }, { "name": "accepted", "type": "boolean" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["`Executing updateInvitedGuest...`", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.updateInvitedGuestUc", "methodName": "updateInvitedGuest",
+                  "arguments": ["token", "accepted"] } }
+              ]
+            },
+            {
+              "name": "cancelBooking", "modifiers": ["public"], "returnType": "Promise<void>",
+              "parameters": [{ "name": "token", "type": "string" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.logger", "methodName": "debug",
+                  "arguments": ["`Executing cancelBooking...`", "'BookingService'"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.cancelBookingUc", "methodName": "cancelBooking",
+                  "arguments": ["token"] } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/order/order.module.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "NestModule", "name": "OrderModule", "modifiers": ["export"],
+          "annotations": [{ "name": "@Module", "parameters": {
+            "controllers": ["OrderController"],
+            "providers": ["OrderService", "CreateOrderUseCase", "DeleteOrderUseCase", "OrderMailerUseCase"],
+            "imports": ["TypeOrmModule.forFeature([OrderLine, OrderRepository])", "BookingModule"],
+            "exports": []
+          } }]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/order/model/entities/order.entity.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "Order", "modifiers": ["export"],
+          "annotations": [{ "name": "@Entity", "parameters": { "name": "Orders" } }, { "name": "@Exclude" }],
+          "extends": "BaseEntity", "implements": ["IOrder"],
+          "fields": [
+            { "name": "bookingId", "type": "number", "required": true,
+              "annotations": ["@Column('bigint', { name: 'idBooking' })", "@Expose()", "@IsInt()"] },
+            { "name": "invitedGuestId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idInvitedGuest', nullable: true })", "@Expose()", "@IsInt()", "@IsOptional()"] },
+            { "name": "hostId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idHost', nullable: true })", "@Expose()", "@IsInt()", "@IsOptional()"] },
+            { "name": "booking", "type": "Booking", "optional": true,
+              "annotations": ["@OneToOne(() => Booking)", "@JoinColumn({ name: 'idBooking' })", "@ApiHideProperty()"] },
+            { "name": "orderLines", "type": "OrderLine[]", "optional": true,
+              "annotations": ["@OneToMany(() => OrderLine, orderLine => orderLine.order, { onUpdate: 'CASCADE' })", "@ApiHideProperty()"] }
+          ],
+          "relationships": {
+            "oneToOne": ["Booking (idBooking)"],
+            "oneToMany": ["OrderLine (onUpdate=CASCADE)"],
+            "implements": ["IOrder"], "extends": "BaseEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/order/model/entities/order-line.entity.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "OrderLine", "modifiers": ["export"],
+          "annotations": [{ "name": "@Entity", "parameters": { "name": "OrderLine" } }, { "name": "@Exclude" }],
+          "extends": "BaseEntity", "implements": ["IOrderLine"],
+          "fields": [
+            { "name": "dishId", "type": "number", "required": true,
+              "annotations": ["@Column('bigint', { name: 'idDish' })", "@Expose()", "@IsInt()", "@Transform(value => Number(value))"] },
+            { "name": "amount", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { nullable: true })", "@Expose()", "@IsInt()", "@IsOptional()"] },
+            { "name": "comment", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 255, nullable: true })", "@Expose()", "@IsString()", "@MaxLength(255)", "@IsOptional()"] },
+            { "name": "orderId", "type": "number", "optional": true,
+              "annotations": ["@Column('bigint', { name: 'idOrder' })", "@Expose()", "@IsInt()", "@IsOptional()"] },
+            { "name": "order", "type": "Order", "optional": true,
+              "annotations": ["@ManyToOne(() => Order, order => order.orderLines)", "@JoinColumn({ name: 'idOrder' })", "@ApiHideProperty()"] },
+            { "name": "dish", "type": "Dish", "optional": true,
+              "annotations": ["@ManyToOne(() => Dish)", "@JoinColumn({ name: 'idDish' })", "@ApiHideProperty()"] },
+            { "name": "ingredients", "type": "Ingredient[]", "optional": true,
+              "annotations": ["@ManyToMany(() => Ingredient, { cascade: ['insert'] })", "@JoinTable({ name: 'OrderDishExtraIngredient', joinColumn: { name: 'idOrderLine' }, inverseJoinColumn: { name: 'idIngredient' } })", "@ApiHideProperty()"] }
+          ],
+          "relationships": {
+            "manyToOne": ["Order (idOrder)", "Dish (idDish)"],
+            "manyToMany": ["Ingredient (via OrderDishExtraIngredient, cascade=insert)"],
+            "implements": ["IOrderLine"], "extends": "BaseEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/dish/model/entities/dish.entity.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "Dish", "modifiers": ["export"],
+          "annotations": [{ "name": "@Entity", "parameters": { "name": "Dish" } }, { "name": "@Exclude" }],
+          "extends": "BaseEntity", "implements": ["IDish"],
+          "fields": [
+            { "name": "name", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 255, nullable: true })", "@IsString()", "@MaxLength(255)", "@IsOptional()", "@Expose()"] },
+            { "name": "description", "type": "string", "optional": true,
+              "annotations": ["@Column('varchar', { length: 4000, nullable: true })", "@IsString()", "@MaxLength(4000)", "@IsOptional()", "@Expose()"] },
+            { "name": "price", "type": "number", "optional": true,
+              "annotations": ["@Column('decimal', { precision: 16, scale: 10, nullable: true })", "@IsNumber()", "@IsOptional()", "@Expose()", "@Transform(value => Number(value))"] },
+            { "name": "imageId", "type": "number", "required": true,
+              "annotations": ["@Column('bigint', { name: 'idImage' })", "@IsNumber()", "@Expose()"] },
+            { "name": "image", "type": "Image", "required": true,
+              "annotations": ["@ManyToOne(() => Image, image => image.id)", "@JoinColumn({ name: 'idImage' })", "@ApiHideProperty()"] },
+            { "name": "categories", "type": "Category[]", "optional": true,
+              "annotations": ["@ManyToMany(() => Category)", "@JoinTable({ name: 'DishCategory', joinColumn: { name: 'idDish' }, inverseJoinColumn: { name: 'idCategory' } })", "@ApiHideProperty()"] },
+            { "name": "ingredients", "type": "Ingredient[]", "optional": true,
+              "annotations": ["@ManyToMany(() => Ingredient)", "@JoinTable({ name: 'DishIngredient', joinColumn: { name: 'idDish' }, inverseJoinColumn: { name: 'idIngredient' } })", "@ApiHideProperty()"] }
+          ],
+          "relationships": {
+            "manyToOne": ["Image (idImage)"],
+            "manyToMany": ["Category (via DishCategory)", "Ingredient (via DishIngredient)"],
+            "implements": ["IDish"], "extends": "BaseEntity"
+          }
+        }
+      ]
+    }
+  ],
+  "moduleGraph": {
+    "AppModule": {
+      "imports": ["CoreModule", "BookingModule", "DishModule", "ImageModule", "OrderModule"]
+    },
+    "BookingModule": {
+      "imports": ["TypeOrmModule.forFeature([InvitedGuestRepository, TableRepository, BookingRepository])"],
+      "exports": ["BookingService"],
+      "useCases": ["CreateBookingUseCase", "UpdateInvitedGuestUseCase", "GetTableUseCase", "CancelBookingUseCase", "BookingMailerUseCase"]
+    },
+    "OrderModule": {
+      "imports": ["TypeOrmModule.forFeature([OrderLine, OrderRepository])", "BookingModule"],
+      "useCases": ["CreateOrderUseCase", "DeleteOrderUseCase", "OrderMailerUseCase"]
+    }
+  },
+  "complexity_metrics": {
+    "total_entities": 6,
+    "total_services": 4,
+    "total_controllers": 2,
+    "total_use_cases": 8,
+    "design_patterns": ["Use Case Pattern", "Repository Pattern", "NestJS Module", "TypeORM Entity", "DTO Validation", "CQRS-lite"],
+    "validation": "class-validator decorators",
+    "serialization": "class-transformer decorators (@Exclude, @Expose, @Transform)",
+    "authentication": "Passport JWT + AuthGuard + RolesGuard",
+    "api_docs": "Swagger (@ApiTags, @ApiResponse, @ApiBearerAuth)"
+  }
+}

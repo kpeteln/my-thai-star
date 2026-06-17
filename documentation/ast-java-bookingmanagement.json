@@ -1,0 +1,392 @@
+{
+  "ast_version": "1.0",
+  "language": "java",
+  "framework": "Spring Boot / Devon4j",
+  "domain": "bookingmanagement",
+  "base_package": "com.devonfw.application.mtsj.bookingmanagement",
+  "files": [
+    {
+      "file_path": "bookingmanagement/dataaccess/api/BookingEntity.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api",
+      "imports": [
+        "java.time.Instant", "java.util.List",
+        "javax.persistence.Entity", "javax.persistence.FetchType",
+        "javax.persistence.JoinColumn", "javax.persistence.ManyToOne",
+        "javax.persistence.OneToMany", "javax.persistence.OneToOne",
+        "javax.persistence.Table", "javax.persistence.Transient",
+        "javax.validation.constraints.Digits", "javax.validation.constraints.Min",
+        "com.devonfw.application.mtsj.bookingmanagement.common.api.Booking",
+        "com.devonfw.application.mtsj.bookingmanagement.common.api.datatype.BookingType",
+        "com.devonfw.application.mtsj.general.dataaccess.api.ApplicationPersistenceEntity",
+        "com.devonfw.application.mtsj.ordermanagement.dataaccess.api.OrderEntity",
+        "com.devonfw.application.mtsj.usermanagement.dataaccess.api.UserEntity"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration",
+          "name": "BookingEntity",
+          "modifiers": ["public"],
+          "annotations": [
+            { "name": "@Entity", "parameters": {} },
+            { "name": "@Table", "parameters": { "name": "Booking" } }
+          ],
+          "extends": "ApplicationPersistenceEntity",
+          "implements": ["Booking"],
+          "designPattern": "JPA Entity",
+          "fields": [
+            { "name": "name", "type": "String", "modifiers": ["private"], "annotations": [] },
+            { "name": "bookingToken", "type": "String", "modifiers": ["private"], "annotations": [] },
+            { "name": "comment", "type": "String", "modifiers": ["private"], "annotations": [] },
+            { "name": "bookingDate", "type": "Instant", "modifiers": ["private"], "annotations": [] },
+            { "name": "expirationDate", "type": "Instant", "modifiers": ["private"], "annotations": [] },
+            { "name": "creationDate", "type": "Instant", "modifiers": ["private"], "annotations": [] },
+            { "name": "email", "type": "String", "modifiers": ["private"], "annotations": [] },
+            { "name": "canceled", "type": "Boolean", "modifiers": ["private"], "annotations": [], "initialValue": "false" },
+            { "name": "bookingType", "type": "BookingType", "modifiers": ["private"], "annotations": [] },
+            { "name": "table", "type": "TableEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idTable)"] },
+            { "name": "order", "type": "OrderEntity", "modifiers": ["private"], "annotations": ["@OneToOne(FetchType.EAGER)", "@JoinColumn(name=idOrder)"] },
+            { "name": "user", "type": "UserEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idUser)"] },
+            { "name": "invitedGuests", "type": "List<InvitedGuestEntity>", "modifiers": ["private"], "annotations": ["@OneToMany(mappedBy=booking, FetchType.LAZY)"] },
+            { "name": "orders", "type": "List<OrderEntity>", "modifiers": ["private"], "annotations": ["@OneToMany(mappedBy=booking, FetchType.EAGER)"] },
+            { "name": "assistants", "type": "Integer", "modifiers": ["private"], "annotations": ["@Min(value=1)", "@Digits(integer=2,fraction=0)"] },
+            { "name": "serialVersionUID", "type": "long", "modifiers": ["private","static","final"], "initialValue": "1L" }
+          ],
+          "methods": [
+            {
+              "name": "BookingEntity", "type": "Constructor", "modifiers": ["public"], "parameters": [],
+              "body": [
+                { "type": "MethodInvocation", "methodName": "super", "arguments": [] },
+                { "type": "Assignment", "variable": "this.canceled", "value": { "type": "Literal", "value": "false", "dataType": "Boolean" } }
+              ]
+            },
+            { "name": "getName", "modifiers": ["public"], "returnType": "String", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.name" } }] },
+            { "name": "setName", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "name", "type": "String" }], "annotations": ["@Override"],
+              "body": [{ "type": "Assignment", "variable": "this.name", "value": { "type": "VariableReference", "name": "name" } }] },
+            { "name": "getBookingToken", "modifiers": ["public"], "returnType": "String", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.bookingToken" } }] },
+            { "name": "setBookingToken", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "bookingToken", "type": "String" }], "annotations": ["@Override"],
+              "body": [{ "type": "Assignment", "variable": "this.bookingToken", "value": { "type": "VariableReference", "name": "bookingToken" } }] },
+            { "name": "getTable", "modifiers": ["public"], "returnType": "TableEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idTable)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.table" } }] },
+            { "name": "getInvitedGuests", "modifiers": ["public"], "returnType": "List<InvitedGuestEntity>", "parameters": [],
+              "annotations": ["@OneToMany(mappedBy=booking, fetch=FetchType.LAZY)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.invitedGuests" } }] },
+            { "name": "getOrder", "modifiers": ["public"], "returnType": "OrderEntity", "parameters": [],
+              "annotations": ["@OneToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idOrder)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.order" } }] },
+            { "name": "getOrders", "modifiers": ["public"], "returnType": "List<OrderEntity>", "parameters": [],
+              "annotations": ["@OneToMany(mappedBy=booking, fetch=FetchType.EAGER)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.orders" } }] },
+            { "name": "getUser", "modifiers": ["public"], "returnType": "UserEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idUser)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.user" } }] },
+            { "name": "getTableId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.table" },
+                    "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.table", "methodName": "getId", "arguments": [] } }
+              ] },
+            { "name": "setTableId", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "tableId", "type": "Long" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "tableId" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "Assignment", "variable": "this.table", "value": { "type": "Literal", "value": "null" } }],
+                  "elseBlock": [
+                    { "type": "VariableDeclaration", "name": "tableEntity", "variableType": "TableEntity",
+                      "value": { "type": "ObjectCreation", "className": "TableEntity", "arguments": [] } },
+                    { "type": "MethodInvocation", "target": "tableEntity", "methodName": "setId",
+                      "arguments": [{ "type": "VariableReference", "name": "tableId" }] },
+                    { "type": "Assignment", "variable": "this.table", "value": { "type": "VariableReference", "name": "tableEntity" } }
+                  ] }
+              ] }
+          ],
+          "relationships": {
+            "manyToOne": ["TableEntity (idTable)", "UserEntity (idUser)"],
+            "oneToOne": ["OrderEntity (idOrder)"],
+            "oneToMany": ["InvitedGuestEntity (mappedBy=booking, LAZY)", "OrderEntity (mappedBy=booking, EAGER)"],
+            "implements": ["Booking"],
+            "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "bookingmanagement/dataaccess/api/InvitedGuestEntity.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "InvitedGuestEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "InvitedGuest" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["InvitedGuest"],
+          "fields": [
+            { "name": "booking", "type": "BookingEntity", "modifiers": ["private"], "annotations": ["@ManyToOne(FetchType.EAGER)", "@JoinColumn(name=idBooking)"] },
+            { "name": "guestToken", "type": "String", "modifiers": ["private"] },
+            { "name": "email", "type": "String", "modifiers": ["private"] },
+            { "name": "accepted", "type": "Boolean", "modifiers": ["private"] },
+            { "name": "modificationDate", "type": "Instant", "modifiers": ["private"] },
+            { "name": "order", "type": "OrderEntity", "modifiers": ["private"], "annotations": ["@OneToOne", "@JoinColumn(name=idOrder)"] }
+          ],
+          "methods": [
+            { "name": "getBooking", "modifiers": ["public"], "returnType": "BookingEntity", "parameters": [],
+              "annotations": ["@ManyToOne(fetch=FetchType.EAGER)", "@JoinColumn(name=idBooking)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.booking" } }] },
+            { "name": "getGuestToken", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.guestToken" } }] },
+            { "name": "getEmail", "modifiers": ["public"], "returnType": "String", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.email" } }] },
+            { "name": "getAccepted", "modifiers": ["public"], "returnType": "Boolean", "parameters": [],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.accepted" } }] },
+            { "name": "getOrder", "modifiers": ["public"], "returnType": "OrderEntity", "parameters": [],
+              "annotations": ["@OneToOne", "@JoinColumn(name=idOrder)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.order" } }] },
+            { "name": "getBookingId", "modifiers": ["public"], "returnType": "Long", "parameters": [], "annotations": ["@Override","@Transient"],
+              "body": [
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "==",
+                    "left": { "type": "VariableReference", "name": "this.booking" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "ReturnStatement", "value": { "type": "Literal", "value": "null" } }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.booking", "methodName": "getId", "arguments": [] } }
+              ] }
+          ],
+          "relationships": {
+            "manyToOne": ["BookingEntity (idBooking)"],
+            "oneToOne": ["OrderEntity (idOrder)"],
+            "implements": ["InvitedGuest"], "extends": "ApplicationPersistenceEntity"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "bookingmanagement/dataaccess/api/TableEntity.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "TableEntity", "modifiers": ["public"],
+          "annotations": [{ "name": "@Entity" }, { "name": "@Table", "parameters": { "name": "\"Table\"" } }],
+          "extends": "ApplicationPersistenceEntity", "implements": ["Table"],
+          "fields": [{ "name": "seatsNumber", "type": "Integer", "modifiers": ["private"] }],
+          "methods": [
+            { "name": "getSeatsNumber", "modifiers": ["public"], "returnType": "Integer", "parameters": [], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "this.seatsNumber" } }] },
+            { "name": "setSeatsNumber", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "seatsNumber", "type": "Integer" }], "annotations": ["@Override"],
+              "body": [{ "type": "Assignment", "variable": "this.seatsNumber", "value": { "type": "VariableReference", "name": "seatsNumber" } }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "bookingmanagement/dataaccess/api/repo/BookingRepository.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.dataaccess.api.repo",
+      "designPattern": "Repository (Spring Data JPA + QueryDSL)",
+      "typeDeclarations": [
+        {
+          "type": "InterfaceDeclaration", "name": "BookingRepository", "modifiers": ["public"],
+          "extends": ["DefaultRepository<BookingEntity>"],
+          "methods": [
+            {
+              "name": "findBookingByToken", "modifiers": ["public","abstract"],
+              "returnType": "BookingEntity",
+              "parameters": [{ "name": "token", "type": "String", "annotations": ["@Param(token)"] }],
+              "annotations": ["@Query(SELECT booking FROM BookingEntity booking WHERE booking.bookingToken = :token)"]
+            },
+            {
+              "name": "findBookings", "modifiers": ["default"], "returnType": "Page<BookingEntity>",
+              "parameters": [{ "name": "criteria", "type": "BookingSearchCriteriaTo" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "alias", "variableType": "BookingEntity",
+                  "value": { "type": "MethodInvocation", "methodName": "newDslAlias", "arguments": [] } },
+                { "type": "VariableDeclaration", "name": "query", "variableType": "JPAQuery<BookingEntity>",
+                  "value": { "type": "MethodInvocation", "methodName": "newDslQuery", "arguments": ["alias"] } },
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "&&",
+                    "left": { "type": "BinaryExpression", "operator": "!=",
+                      "left": { "type": "VariableReference", "name": "name" }, "right": { "type": "Literal", "value": "null" } },
+                    "right": { "type": "UnaryExpression", "operator": "!", "operand": { "type": "MethodInvocation", "target": "name", "methodName": "isEmpty" } } },
+                  "thenBlock": [{ "type": "MethodInvocation", "target": "QueryUtil.get()", "methodName": "whereString",
+                    "arguments": ["query", "$(alias.getName())", "name", "criteria.getNameOption()"] }], "elseBlock": [] },
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "!=",
+                    "left": { "type": "VariableReference", "name": "bookingType" }, "right": { "type": "Literal", "value": "null" } },
+                  "thenBlock": [{ "type": "MethodInvocation", "target": "query", "methodName": "where",
+                    "arguments": ["Alias.$(alias.getBookingType()).eq(bookingType)"] }], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "QueryUtil.get()", "methodName": "findPaginated",
+                  "arguments": ["criteria.getPageable()", "query", "true"] } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "bookingmanagement/logic/impl/BookingmanagementImpl.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.logic.impl",
+      "designPattern": "Service Facade / Business Logic",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "BookingmanagementImpl", "modifiers": ["public"],
+          "annotations": [{ "name": "@Named" }, { "name": "@Transactional" }],
+          "extends": "AbstractComponentFacade", "implements": ["Bookingmanagement"],
+          "fields": [
+            { "name": "LOG", "type": "Logger", "modifiers": ["private","static","final"] },
+            { "name": "clientPort", "type": "int", "modifiers": ["private"], "annotations": ["@Value(${client.port})"] },
+            { "name": "serverContextPath", "type": "String", "modifiers": ["private"], "annotations": ["@Value(${server.servlet.context-path})"] },
+            { "name": "hoursLimit", "type": "int", "modifiers": ["private"], "annotations": ["@Value(${mythaistar.hourslimitcancellation})"] },
+            { "name": "bookingDao", "type": "BookingRepository", "modifiers": ["private"], "annotations": ["@Inject"] },
+            { "name": "invitedGuestDao", "type": "InvitedGuestRepository", "modifiers": ["private"], "annotations": ["@Inject"] },
+            { "name": "tableDao", "type": "TableRepository", "modifiers": ["private"], "annotations": ["@Inject"] },
+            { "name": "orderManagement", "type": "Ordermanagement", "modifiers": ["private"], "annotations": ["@Inject"] },
+            { "name": "mailService", "type": "Mail", "modifiers": ["private"], "annotations": ["@Inject"] }
+          ],
+          "methods": [
+            {
+              "name": "findBooking", "modifiers": ["public"], "returnType": "BookingCto",
+              "parameters": [{ "name": "id", "type": "Long" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "VariableDeclaration", "name": "entity", "variableType": "BookingEntity",
+                  "value": { "type": "MethodInvocation", "target": "getBookingDao()", "methodName": "find", "arguments": ["id"] } },
+                { "type": "VariableDeclaration", "name": "cto", "variableType": "BookingCto",
+                  "value": { "type": "ObjectCreation", "className": "BookingCto", "arguments": [] } },
+                { "type": "MethodInvocation", "target": "cto", "methodName": "setBooking",
+                  "arguments": [{ "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "map", "arguments": ["entity","BookingEto.class"] }] },
+                { "type": "MethodInvocation", "target": "cto", "methodName": "setTable",
+                  "arguments": [{ "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "map", "arguments": ["entity.getTable()","TableEto.class"] }] },
+                { "type": "MethodInvocation", "target": "cto", "methodName": "setOrder",
+                  "arguments": [{ "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "map", "arguments": ["entity.getOrder()","OrderEto.class"] }] },
+                { "type": "MethodInvocation", "target": "cto", "methodName": "setInvitedGuests",
+                  "arguments": [{ "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "mapList", "arguments": ["entity.getInvitedGuests()","InvitedGuestEto.class"] }] },
+                { "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "cto" } }
+              ]
+            },
+            {
+              "name": "findBookingsByPost", "modifiers": ["public"], "returnType": "Page<BookingCto>",
+              "parameters": [{ "name": "criteria", "type": "BookingSearchCriteriaTo" }],
+              "annotations": ["@Override","@RolesAllowed(PERMISSION_FIND_BOOKING)"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "methodName": "findBookingCtos", "arguments": ["criteria"] } }]
+            },
+            {
+              "name": "deleteBooking", "modifiers": ["public"], "returnType": "boolean",
+              "parameters": [{ "name": "bookingId", "type": "Long" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "VariableDeclaration", "name": "bookingOrders", "variableType": "List<OrderCto>",
+                  "value": { "type": "MethodInvocation", "target": "this.orderManagement", "methodName": "findOrders", "arguments": ["bookingId"] } },
+                { "type": "ForEachStatement", "variable": "orderCto", "variableType": "OrderCto", "iterable": "bookingOrders",
+                  "body": [
+                    { "type": "VariableDeclaration", "name": "deleteOrderResult", "variableType": "boolean",
+                      "value": { "type": "MethodInvocation", "target": "this.orderManagement", "methodName": "deleteOrder",
+                        "arguments": [{ "type": "MethodInvocation", "target": "orderCto.getOrder()", "methodName": "getId" }] } },
+                    { "type": "IfStatement",
+                      "condition": { "type": "VariableReference", "name": "deleteOrderResult" },
+                      "thenBlock": [{ "type": "MethodInvocation", "target": "LOG", "methodName": "debug",
+                        "arguments": ["\"The order with id '{}' has been deleted.\"","orderCto.getOrder().getId()"] }],
+                      "elseBlock": [] }
+                  ] },
+                { "type": "VariableDeclaration", "name": "booking", "variableType": "BookingEntity",
+                  "value": { "type": "MethodInvocation", "target": "getBookingDao()", "methodName": "find", "arguments": ["bookingId"] } },
+                { "type": "MethodInvocation", "target": "getBookingDao()", "methodName": "delete", "arguments": ["booking"] },
+                { "type": "ReturnStatement", "value": { "type": "Literal", "value": "true", "dataType": "boolean" } }
+              ]
+            },
+            {
+              "name": "saveBooking", "modifiers": ["public"], "returnType": "BookingEto",
+              "parameters": [{ "name": "booking", "type": "BookingCto" }], "annotations": ["@Override"],
+              "body": [
+                { "type": "MethodInvocation", "target": "Objects", "methodName": "requireNonNull", "arguments": ["booking","\"booking\""] },
+                { "type": "VariableDeclaration", "name": "bookingEntity", "variableType": "BookingEntity",
+                  "value": { "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "map", "arguments": ["booking.getBooking()","BookingEntity.class"] } },
+                { "type": "MethodInvocation", "target": "bookingEntity", "methodName": "setCanceled", "arguments": [{ "type": "Literal", "value": "false" }] },
+                { "type": "VariableDeclaration", "name": "invited", "variableType": "List<InvitedGuestEntity>",
+                  "value": { "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "mapList", "arguments": ["booking.getInvitedGuests()","InvitedGuestEntity.class"] } },
+                { "type": "ForEachStatement", "variable": "invite", "variableType": "InvitedGuestEntity", "iterable": "invited",
+                  "body": [
+                    { "type": "TryStatement",
+                      "tryBlock": [{ "type": "MethodInvocation", "target": "invite", "methodName": "setGuestToken",
+                        "arguments": [{ "type": "MethodInvocation", "methodName": "buildToken", "arguments": ["invite.getEmail()","\"GB_\""] }] }],
+                      "catchClauses": [{ "exceptionType": "NoSuchAlgorithmException", "variable": "e",
+                        "block": [{ "type": "MethodInvocation", "target": "LOG", "methodName": "debug", "arguments": ["\"MD5 Algorithm not available\""] }] }],
+                      "finallyBlock": null },
+                    { "type": "MethodInvocation", "target": "invite", "methodName": "setAccepted", "arguments": [{ "type": "Literal", "value": "false" }] }
+                  ] },
+                { "type": "MethodInvocation", "target": "bookingEntity", "methodName": "setCreationDate",
+                  "arguments": [{ "type": "MethodInvocation", "target": "Instant", "methodName": "now", "arguments": [] }] },
+                { "type": "MethodInvocation", "target": "bookingEntity", "methodName": "setExpirationDate",
+                  "arguments": [{ "type": "MethodInvocation", "target": "bookingEntity.getBookingDate()", "methodName": "minus", "arguments": ["Duration.ofHours(1)"] }] },
+                { "type": "VariableDeclaration", "name": "resultEntity", "variableType": "BookingEntity",
+                  "value": { "type": "MethodInvocation", "target": "getBookingDao()", "methodName": "save", "arguments": ["bookingEntity"] } },
+                { "type": "MethodInvocation", "methodName": "sendConfirmationEmails", "arguments": ["resultEntity"] },
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "getBeanMapper()", "methodName": "map",
+                  "arguments": ["resultEntity","BookingEto.class"] } }
+              ]
+            },
+            {
+              "name": "buildToken", "modifiers": ["public"], "returnType": "String",
+              "parameters": [{ "name": "email", "type": "String" }, { "name": "type", "type": "String" }],
+              "throws": ["NoSuchAlgorithmException"],
+              "body": [
+                { "type": "VariableDeclaration", "name": "now", "variableType": "Instant",
+                  "value": { "type": "MethodInvocation", "target": "Instant", "methodName": "now", "arguments": [] } },
+                { "type": "VariableDeclaration", "name": "md", "variableType": "MessageDigest",
+                  "value": { "type": "MethodInvocation", "target": "MessageDigest", "methodName": "getInstance", "arguments": ["\"MD5\""] } },
+                { "type": "MethodInvocation", "target": "md", "methodName": "update", "arguments": ["(email + date + time).getBytes()"] },
+                { "type": "VariableDeclaration", "name": "digest", "variableType": "byte[]",
+                  "value": { "type": "MethodInvocation", "target": "md", "methodName": "digest", "arguments": [] } },
+                { "type": "VariableDeclaration", "name": "sb", "variableType": "StringBuilder",
+                  "value": { "type": "ObjectCreation", "className": "StringBuilder", "arguments": [] } },
+                { "type": "ForEachStatement", "variable": "b", "variableType": "byte", "iterable": "digest",
+                  "body": [{ "type": "MethodInvocation", "target": "sb", "methodName": "append",
+                    "arguments": [{ "type": "MethodInvocation", "target": "String", "methodName": "format", "arguments": ["\"%02x\"","b & 0xff"] }] }] },
+                { "type": "ReturnStatement", "value": { "type": "BinaryExpression", "operator": "+",
+                  "left": { "type": "BinaryExpression", "operator": "+",
+                    "left": { "type": "VariableReference", "name": "type" }, "right": { "type": "VariableReference", "name": "date" } },
+                  "right": { "type": "VariableReference", "name": "sb" } } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "bookingmanagement/service/impl/rest/BookingmanagementRestServiceImpl.java",
+      "packageName": "com.devonfw.application.mtsj.bookingmanagement.service.impl.rest",
+      "designPattern": "REST Controller / Delegation",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "BookingmanagementRestServiceImpl", "modifiers": ["public"],
+          "annotations": [{ "name": "@Named", "parameters": { "value": "BookingmanagementRestService" } }, { "name": "@Validated" }],
+          "implements": ["BookingmanagementRestService"],
+          "fields": [{ "name": "bookingmanagement", "type": "Bookingmanagement", "modifiers": ["private"], "annotations": ["@Inject"] }],
+          "methods": [
+            { "name": "getBooking", "modifiers": ["public"], "returnType": "BookingCto", "parameters": [{ "name": "id", "type": "long" }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "findBooking", "arguments": ["id"] } }] },
+            { "name": "saveBooking", "modifiers": ["public"], "returnType": "BookingEto", "parameters": [{ "name": "booking", "type": "BookingCto", "annotations": ["@Valid"] }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "saveBooking", "arguments": ["booking"] } }] },
+            { "name": "deleteBooking", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "id", "type": "long" }], "annotations": ["@Override"],
+              "body": [{ "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "deleteBooking", "arguments": ["id"] }] },
+            { "name": "findBookingsByPost", "modifiers": ["public"], "returnType": "Page<BookingCto>", "parameters": [{ "name": "searchCriteriaTo", "type": "BookingSearchCriteriaTo" }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "findBookingsByPost", "arguments": ["searchCriteriaTo"] } }] },
+            { "name": "getInvitedGuest", "modifiers": ["public"], "returnType": "InvitedGuestEto", "parameters": [{ "name": "id", "type": "long" }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "findInvitedGuest", "arguments": ["id"] } }] },
+            { "name": "acceptInvite", "modifiers": ["public"], "returnType": "InvitedGuestEto", "parameters": [{ "name": "guestToken", "type": "String" }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "acceptInvite", "arguments": ["guestToken"] } }] },
+            { "name": "declineInvite", "modifiers": ["public"], "returnType": "InvitedGuestEto", "parameters": [{ "name": "guestToken", "type": "String" }], "annotations": ["@Override"],
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "declineInvite", "arguments": ["guestToken"] } }] },
+            { "name": "cancelInvite", "modifiers": ["public"], "returnType": "void", "parameters": [{ "name": "bookingToken", "type": "String" }], "annotations": ["@Override"],
+              "body": [{ "type": "MethodInvocation", "target": "this.bookingmanagement", "methodName": "cancelInvite", "arguments": ["bookingToken"] }] }
+          ]
+        }
+      ]
+    }
+  ],
+  "complexity_metrics": {
+    "total_classes": 5,
+    "total_interfaces": 1,
+    "total_methods": 32,
+    "design_patterns": ["Repository","Service Facade","REST Delegation","Entity/DTO Mapping","JPA Entity"],
+    "layer_architecture": ["service/rest","logic/impl","dataaccess/api/repo","dataaccess/api"]
+  }
+}

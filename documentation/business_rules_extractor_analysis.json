@@ -1,0 +1,578 @@
+{
+  "application": "My Thai Star",
+  "extraction_date": "2025-01-01",
+  "total_business_rules": 67,
+  "domains": [
+    {
+      "domain": "Reservation Management",
+      "description": "All rules governing table reservation creation, modification, cancellation, and invited-guest event management.",
+      "workflows": [
+        {
+          "workflow": "Create Common Reservation",
+          "trigger": "Customer submits booking form with date, name, email, and number of assistants",
+          "steps": [
+            "1. Validate booking date is in the future",
+            "2. Validate email format (text@text.xx)",
+            "3. Validate assistants >= 1",
+            "4. Check Terms and Conditions accepted",
+            "5. Query for free table with seats >= assistants in the booking time window (date - 1 hour to date)",
+            "6. If no free table: reject request with NoFreeTablesException",
+            "7. Generate booking token: 'CB_' + YYYYMMDD + '_' + MD5(email + timestamp)",
+            "8. Set expiration date = booking date - 1 hour",
+            "9. Set creation date = now",
+            "10. Set canceled = false",
+            "11. Assign table ID to booking",
+            "12. Persist booking record",
+            "13. Send confirmation email to host with booking token, date, cancellation link"
+          ],
+          "business_rules": [
+            "Booking date must be in the future",
+            "Email must be a valid email address",
+            "Number of assistants must be at least 1 (integer, max 2 digits)",
+            "Terms and Conditions must be accepted",
+            "A free table with enough seats must be available",
+            "Booking token format: CB_ + date + _ + MD5 hash of email+timestamp",
+            "Expiration date is booking date minus 1 hour",
+            "Cancellation link is valid until expiration date"
+          ],
+          "exceptions": [
+            "NoFreeTablesException: No available tables for the requested date and party size",
+            "InvalidBookingException: COMMON bookings cannot include invited guests"
+          ]
+        },
+        {
+          "workflow": "Create Group Invitation (Event)",
+          "trigger": "Host submits invitation form with date, email, and list of guest email addresses",
+          "steps": [
+            "1. Validate booking date is in the future",
+            "2. Validate host email format",
+            "3. Validate all guest email addresses",
+            "4. Generate host booking token: 'CB_' + date + '_' + MD5(hostEmail + timestamp)",
+            "5. Generate guest tokens for each guest: 'GB_' + date + '_' + MD5(guestEmail + timestamp)",
+            "6. Set expiration date = booking date - 1 hour",
+            "7. Persist booking and all invited guest records",
+            "8. Send confirmation email to host with token, guest list, and cancellation link",
+            "9. Send invitation email to each guest with accept and decline action links"
+          ],
+          "business_rules": [
+            "Host email must be valid (text@text.xx)",
+            "All guest emails must be valid",
+            "Guest tokens are prefixed with 'GB_'",
+            "Each invited guest gets an initial accepted=false status",
+            "Host receives confirmation with full guest list",
+            "Each guest receives individual invitation email with accept/decline links",
+            "Table is NOT assigned at invite creation; it is assigned 1 hour before the event based on accepted count"
+          ],
+          "exceptions": []
+        },
+        {
+          "workflow": "Accept Guest Invitation",
+          "trigger": "Guest clicks accept link in invitation email (contains GB_ token)",
+          "steps": [
+            "1. Validate guest token exists in the system",
+            "2. Set invited guest accepted = true",
+            "3. Persist updated guest record",
+            "4. Send acceptance confirmation to guest (with decline link for cancellation)",
+            "5. Notify host that guest has accepted"
+          ],
+          "business_rules": [
+            "Guest token must exist and be associated with a valid booking",
+            "Guest can change acceptance status multiple times before expiration",
+            "Host is notified of all guest acceptance/decline actions"
+          ],
+          "exceptions": [
+            "NoInviteException: Guest token not found"
+          ]
+        },
+        {
+          "workflow": "Decline Guest Invitation",
+          "trigger": "Guest clicks decline link in invitation email or after prior acceptance",
+          "steps": [
+            "1. Validate guest token exists",
+            "2. Find and delete all guest orders (if any were placed)",
+            "3. Set accepted = false",
+            "4. Notify guest of decline confirmation",
+            "5. Notify host that guest has declined"
+          ],
+          "business_rules": [
+            "All orders placed by the declining guest are automatically deleted",
+            "Guest orders cannot remain after a guest declines"
+          ],
+          "exceptions": [
+            "NoInviteException: Guest token not found"
+          ]
+        },
+        {
+          "workflow": "Cancel Booking",
+          "trigger": "Host clicks cancellation link in confirmation email (contains CB_ token)",
+          "steps": [
+            "1. Validate booking token exists",
+            "2. Check current time < booking expiration date (= booking date - 1 hour)",
+            "3. If past expiration: throw CancelInviteNotAllowedException / InvalidCancelationTimeException",
+            "4. Find all invited guests for the booking",
+            "5. For each guest: delete guest orders, then delete guest record",
+            "6. Delete all booking orders",
+            "7. Delete booking record",
+            "8. Send cancellation email to host",
+            "9. Send cancellation email to each guest"
+          ],
+          "business_rules": [
+            "Cancellation must occur before the expiration date (booking date minus 1 hour)",
+            "Past the expiration date, cancellation is not allowed",
+            "Cancellation cascades: all invited guests and all orders are deleted",
+            "Host and all guests are notified of the cancellation"
+          ],
+          "exceptions": [
+            "InvalidTokenException: Booking token not found",
+            "InvalidCancelationTimeException / CancelInviteNotAllowedException: Cancellation window expired"
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "Order Management",
+      "description": "All rules governing the creation, validation, pricing, and cancellation of food orders.",
+      "workflows": [
+        {
+          "workflow": "Place Order",
+          "trigger": "Customer submits order cart with booking token and selected dishes",
+          "steps": [
+            "1. Validate booking token is not empty",
+            "2. Determine order type from token prefix (CB_ = common, GB_ = guest)",
+            "3. For CB_ tokens: verify booking exists; verify no existing order for that booking",
+            "4. For GB_ tokens: verify invited guest exists; verify guest has accepted invitation; verify no existing order for that guest",
+            "5. Associate order with booking ID (and invited guest ID if applicable)",
+            "6. Persist order record",
+            "7. For each order line: set dish ID, amount, comment, extras",
+            "8. Persist all order lines",
+            "9. Calculate total price (sum of dish prices * quantity + extras prices)",
+            "10. Send order confirmation email with itemized cost and cancellation link"
+          ],
+          "business_rules": [
+            "Token must start with 'CB_' or 'GB_'; any other format is rejected (WrongTokenException/InvalidTokenException)",
+            "CB_ tokens require a valid existing booking",
+            "GB_ tokens require a valid existing invited guest",
+            "Invited guest must have accepted the invitation before placing an order (GuestNotAcceptedException)",
+            "Each booking can have exactly one order (OrderAlreadyExistException/OrderAlreadyDoneException)",
+            "Each invited guest can have exactly one order",
+            "Order line price = dish base price * amount + sum of selected extras prices",
+            "Order confirmation email is sent to the booking or guest email address",
+            "Email includes itemized dish costs, extras, and total price",
+            "Email includes a link to cancel the order"
+          ],
+          "exceptions": [
+            "WrongTokenException / InvalidTokenException: Token format invalid",
+            "NoBookingException / InvalidTokenException: Booking not found for CB_ token",
+            "NoInviteException / InvalidTokenException: Invited guest not found for GB_ token",
+            "GuestNotAcceptedException: Guest has not accepted invitation",
+            "OrderAlreadyExistException / OrderAlreadyDoneException: Duplicate order attempt"
+          ]
+        },
+        {
+          "workflow": "Cancel Order",
+          "trigger": "Customer clicks cancel order link in confirmation email (contains order ID)",
+          "steps": [
+            "1. Find order by ID",
+            "2. Retrieve associated booking",
+            "3. Calculate cancellation deadline = booking date - hoursLimit hours",
+            "4. If current time > cancellation deadline: throw CancelNotAllowedException",
+            "5. Delete all order lines for the order",
+            "6. Delete order record"
+          ],
+          "business_rules": [
+            "Cancellation is only allowed before the configured hours limit before the booking date (mythaistar.hourslimitcancellation)",
+            "Past the cancellation deadline, orders cannot be cancelled (CancelNotAllowedException)",
+            "All order lines are deleted before the parent order is deleted"
+          ],
+          "exceptions": [
+            "CancelNotAllowedException: Cancellation window has expired"
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "Menu and Dish Management",
+      "description": "Rules governing the dish catalog, categories, ingredients, and pricing.",
+      "workflows": [
+        {
+          "workflow": "Browse Menu with Filters",
+          "trigger": "Customer opens the menu page and applies category/price/likes/text filters",
+          "steps": [
+            "1. Compose filter request with selected categories, search text, max price, min likes, sort, and pagination",
+            "2. Translate frontend category names to server category IDs",
+            "3. POST to dish search endpoint",
+            "4. Retrieve matching dishes with images (Base64 encoded) and extras",
+            "5. Apply post-query category filter to include dishes matching any selected category",
+            "6. Return paginated results"
+          ],
+          "business_rules": [
+            "Category name-to-ID mapping: mainDishes=0, starters=1, desserts=2, noodle=3, rice=4, curry=5, vegan=6, vegetarian=7, favourites=8",
+            "A dish matching ANY of the selected categories is included (OR logic, not AND)",
+            "Duplicate dishes matching multiple selected categories are included only once",
+            "Dish images are returned as Base64-encoded strings",
+            "Sort is cleared if no sort property is specified",
+            "Default pagination applies if not provided (pageNumber=1, pageSize=5)"
+          ],
+          "exceptions": []
+        },
+        {
+          "workflow": "Add Dish to Order Cart",
+          "trigger": "Customer clicks 'Add to Order' for a dish on the menu page",
+          "steps": [
+            "1. Create order item with unique UUID as local identifier",
+            "2. Set dish reference and any selected extras",
+            "3. Set default amount to 1 and empty comment",
+            "4. Dispatch AddOrder action to NgRx store",
+            "5. Update cart item count in header badge",
+            "6. Show order in sidenav cart"
+          ],
+          "business_rules": [
+            "Each cart item gets a UUID as a local identifier",
+            "Initial quantity is always 1",
+            "Multiple instances of the same dish can be added as separate line items",
+            "Price is calculated as (dish base price + selected extras prices) * quantity"
+          ],
+          "exceptions": []
+        }
+      ]
+    },
+    {
+      "domain": "User Management and Security",
+      "description": "Rules governing user registration, authentication, roles, and two-factor authentication.",
+      "workflows": [
+        {
+          "workflow": "User Registration",
+          "trigger": "New user submits registration form",
+          "steps": [
+            "1. Validate username, password, and email",
+            "2. Check if username already exists in database",
+            "3. If exists: throw UserAlreadyExistsException",
+            "4. Encode password using BCrypt (PasswordEncoder)",
+            "5. Set default userRoleId = 0 if not provided",
+            "6. Persist user record"
+          ],
+          "business_rules": [
+            "Username must be unique across the system",
+            "Passwords are always stored BCrypt-encoded, never in plain text",
+            "Default role is assigned if no role is specified (roleId=0)",
+            "Registration requires username, password, and email"
+          ],
+          "exceptions": [
+            "UserAlreadyExistsException: Username already taken"
+          ]
+        },
+        {
+          "workflow": "User Login",
+          "trigger": "User submits login form with username and password",
+          "steps": [
+            "1. POST credentials to /login endpoint",
+            "2. Spring Security loads user by username via BaseUserDetailsService",
+            "3. Verify password matches encoded password",
+            "4. Resolve user's role to granted authorities",
+            "5. Return JWT token in response header",
+            "6. Store token and auth state in NgRx store"
+          ],
+          "business_rules": [
+            "Authentication fails if user does not exist or password does not match",
+            "User authorities are derived from RBAC role group tree",
+            "Undefined access control IDs are logged as warnings, not treated as errors",
+            "JWT token is issued on successful authentication"
+          ],
+          "exceptions": [
+            "UsernameNotFoundException: User not found or authentication error"
+          ]
+        },
+        {
+          "workflow": "Two-Factor Authentication Setup",
+          "trigger": "Authenticated user enables 2FA from their profile settings",
+          "steps": [
+            "1. Toggle twoFactorStatus = true via user profile update",
+            "2. Request QR code generation for the user's account",
+            "3. If no TOTP secret exists: generate random Base32 secret and persist",
+            "4. Generate QR code URI from secret for authenticator app scanning",
+            "5. User scans QR code with TOTP app (Google Authenticator, Authy, etc.)",
+            "6. Subsequent logins require TOTP code in addition to password"
+          ],
+          "business_rules": [
+            "TOTP secret is randomly generated once and never regenerated",
+            "QR code is only generated if two-factor status is enabled",
+            "TOTP uses Base32 encoding for secret compatibility with authenticator apps"
+          ],
+          "exceptions": []
+        }
+      ]
+    },
+    {
+      "domain": "Role-Based Access Control",
+      "description": "Authorization rules defining what each role can access.",
+      "roles": [
+        {
+          "role": "ROLE_Customer",
+          "description": "Restaurant customers who browse the menu and place reservations/orders",
+          "permissions": ["mts.FindBooking", "mts.FindOrder"],
+          "capabilities": [
+            "Browse the menu",
+            "Create table reservations",
+            "Create group invitation events",
+            "Place orders using booking token",
+            "Cancel own orders within the cancellation window",
+            "Accept or decline event invitations"
+          ]
+        },
+        {
+          "role": "ROLE_Waiter",
+          "description": "Restaurant staff managing daily orders and reservations",
+          "permissions": ["mts.FindOrder", "mts.FindBooking"],
+          "capabilities": [
+            "View all reservations in the cockpit",
+            "View all orders in the cockpit",
+            "Search orders by email or booking token",
+            "Search bookings by date or email"
+          ]
+        },
+        {
+          "role": "ROLE_Manager",
+          "description": "Restaurant managers with access to analytics features",
+          "permissions": ["mts.FindBooking", "mts.FindOrder", "mts.GetNextWeekPrediction", "mts.GetGeoCluster"],
+          "capabilities": [
+            "All waiter capabilities",
+            "Access demand prediction cockpit (next-week dish forecast)",
+            "Access customer geo-clustering analysis"
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "Analytics and Forecasting",
+      "description": "ML-based demand forecasting and customer geo-clustering.",
+      "workflows": [
+        {
+          "workflow": "Generate Next-Week Demand Prediction",
+          "trigger": "Manager accesses the prediction cockpit and submits forecast parameters",
+          "steps": [
+            "1. Manager provides start date, temperatures for each day, and holiday flags",
+            "2. Delete existing forecast data",
+            "3. Insert new forecast input data (temperature, holiday per day)",
+            "4. For each dish: check if ARIMA model training is needed",
+            "5. If not trained for this data range: prepare training data and run PAL_AUTOARIMA",
+            "6. Save trained ARIMA model parameters",
+            "7. For each dish: run PAL_ARIMA_FORECAST using trained model",
+            "8. Save prediction results",
+            "9. Return 7-day demand forecast per dish"
+          ],
+          "business_rules": [
+            "Model retraining is skipped if already trained for the given dish and start date (idempotency)",
+            "Training is skipped if no historical order data exists",
+            "Weather temperature and holiday status are covariates in the model",
+            "Predictions are generated for all dishes in the catalog",
+            "Only MANAGER role can access this feature"
+          ],
+          "exceptions": []
+        },
+        {
+          "workflow": "Customer Geo Clustering",
+          "trigger": "Manager selects a dish and date range for clustering analysis",
+          "steps": [
+            "1. Manager specifies dishId, start date, end date, and number of clusters (k)",
+            "2. Execute database clustering query with parameters",
+            "3. Return cluster assignments for all matching bookings"
+          ],
+          "business_rules": [
+            "Clustering is performed per dish within a specific date range",
+            "Number of clusters (k) is configurable per analysis",
+            "Only MANAGER role can access this feature"
+          ],
+          "exceptions": []
+        }
+      ]
+    }
+  ],
+  "cross_cutting_rules": [
+    {
+      "category": "Token Management",
+      "rules": [
+        "Booking tokens for hosts are prefixed with 'CB_'",
+        "Guest tokens for invited guests are prefixed with 'GB_'",
+        "Token format: PREFIX + YYYYMMDD + '_' + MD5(email + YYYYMMDDHHmmss)",
+        "Tokens are used as authorization keys for booking and order operations",
+        "Token validity is tied to the booking expiration date"
+      ]
+    },
+    {
+      "category": "Expiration and Time Windows",
+      "rules": [
+        "Booking expiration date = booking date - 1 hour",
+        "Booking cancellation allowed only before expiration date",
+        "Table search window = booking date - 1 hour to booking date",
+        "Order cancellation window = configurable hours before booking date (mythaistar.hourslimitcancellation)"
+      ]
+    },
+    {
+      "category": "Email Notifications",
+      "rules": [
+        "Booking confirmation email sent to host on successful booking creation",
+        "Invitation email sent to each guest on booking creation",
+        "Guest acceptance confirmation email sent to guest after accepting",
+        "Host notified when any guest accepts or declines invitation",
+        "Cancellation emails sent to host and all guests when booking is cancelled",
+        "Order confirmation email sent to customer after order creation",
+        "Order email includes itemized dish costs, extras, and total price",
+        "All emails include relevant action links (cancel, accept, decline)"
+      ]
+    },
+    {
+      "category": "Pricing",
+      "rules": [
+        "Dish line price = dish base price * quantity + sum of selected extras prices",
+        "Extras are deduplicated before price calculation",
+        "Total order price = sum of all line prices"
+      ]
+    },
+    {
+      "category": "Pagination",
+      "rules": [
+        "Default page number is 1 if not provided",
+        "Default page size is 5 if not provided",
+        "All list endpoints support paginated responses"
+      ]
+    },
+    {
+      "category": "Data Integrity",
+      "rules": [
+        "Deleting a booking cascades to delete all associated orders and order lines",
+        "Deleting an invited guest cascades to delete all guest orders",
+        "Declining an invite cascades to delete all guest orders",
+        "Order lines are deleted before their parent order is deleted",
+        "One order is allowed per booking (no duplicate orders per booking token)",
+        "One order is allowed per invited guest"
+      ]
+    }
+  ],
+  "field_analysis": {
+    "Booking": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key, auto-generated"},
+        {"name": "name", "type": "String (max 255)", "required": true, "description": "Host full name"},
+        {"name": "email", "type": "String (max 255, email format)", "required": true, "description": "Host email for notifications and token generation"},
+        {"name": "bookingDate", "type": "Instant/Date", "required": true, "validation": "Must be in the future", "description": "Desired reservation date and time"},
+        {"name": "bookingToken", "type": "String (max 60)", "required": false, "description": "Auto-generated: CB_ + date + MD5 hash"},
+        {"name": "expirationDate", "type": "Instant/Date", "required": false, "description": "Auto-set to bookingDate - 1 hour"},
+        {"name": "creationDate", "type": "Instant/Date", "required": false, "description": "Auto-set to current timestamp"},
+        {"name": "canceled", "type": "Boolean", "required": false, "default": false, "description": "Cancellation status flag"},
+        {"name": "bookingType", "type": "Enum/Integer", "required": false, "values": ["COMMON=0", "INVITED=1"], "description": "Determines reservation vs. group invitation"},
+        {"name": "assistants", "type": "Integer (min 1, max 99)", "required": "for COMMON type", "description": "Number of people in the party"},
+        {"name": "comment", "type": "String (max 4000)", "required": false, "description": "Optional reservation notes"},
+        {"name": "tableId", "type": "Long/number", "required": false, "description": "Auto-assigned free table ID (COMMON bookings only)"},
+        {"name": "userId", "type": "Long/number", "required": false, "description": "Optional linked authenticated user ID"}
+      ]
+    },
+    "InvitedGuest": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key"},
+        {"name": "bookingId", "type": "Long/number", "required": true, "description": "Foreign key to parent booking"},
+        {"name": "email", "type": "String (email format)", "required": true, "description": "Guest email for notification and token generation"},
+        {"name": "guestToken", "type": "String", "required": false, "description": "Auto-generated: GB_ + date + MD5 hash"},
+        {"name": "accepted", "type": "Boolean", "required": false, "default": false, "description": "Whether guest has accepted the invitation"}
+      ]
+    },
+    "Order": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key"},
+        {"name": "bookingId", "type": "Long/number", "required": true, "description": "Foreign key to booking"},
+        {"name": "invitedGuestId", "type": "Long/number", "required": false, "description": "Foreign key to invited guest (for GB_ token orders)"}
+      ]
+    },
+    "OrderLine": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key"},
+        {"name": "orderId", "type": "Long/number", "required": true, "description": "Foreign key to parent order"},
+        {"name": "dishId", "type": "Long/number", "required": true, "description": "Foreign key to dish"},
+        {"name": "amount", "type": "Integer (min 1)", "required": true, "description": "Quantity ordered"},
+        {"name": "comment", "type": "String", "required": false, "description": "Special instructions for the dish"},
+        {"name": "extras", "type": "List<Ingredient>", "required": false, "description": "Selected optional extras/ingredients"}
+      ]
+    },
+    "Dish": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key"},
+        {"name": "name", "type": "String", "required": true, "description": "Dish display name"},
+        {"name": "price", "type": "BigDecimal/number", "required": true, "description": "Base price of the dish"},
+        {"name": "description", "type": "String", "required": false, "description": "Dish description for menu display"},
+        {"name": "categories", "type": "List<Category>", "required": false, "description": "Associated menu categories"},
+        {"name": "extras", "type": "List<Ingredient>", "required": false, "description": "Available optional extras"},
+        {"name": "image", "type": "Image (Base64 in response)", "required": false, "description": "Dish image"}
+      ]
+    },
+    "User": {
+      "fields": [
+        {"name": "id", "type": "Long/number", "required": true, "description": "Primary key"},
+        {"name": "username", "type": "String (unique)", "required": true, "description": "Unique login username"},
+        {"name": "password", "type": "String (BCrypt encoded)", "required": true, "description": "Encoded password, never stored in plain text"},
+        {"name": "email", "type": "String (email format)", "required": true, "description": "User email address"},
+        {"name": "userRoleId", "type": "Long/number", "required": false, "default": 0, "description": "Role ID mapping to MANAGER/WAITER/CUSTOMER"},
+        {"name": "twoFactorStatus", "type": "Boolean", "required": false, "default": false, "description": "Whether 2FA is enabled"},
+        {"name": "secret", "type": "String (Base32)", "required": false, "description": "TOTP secret for 2FA, auto-generated on first QR code request"}
+      ]
+    }
+  },
+  "api_endpoints": {
+    "java_backend": {
+      "base_path": "/services/rest",
+      "booking": [
+        {"method": "GET", "path": "/bookingmanagement/v1/booking/{id}", "description": "Get booking by ID", "auth": "none"},
+        {"method": "POST", "path": "/bookingmanagement/v1/booking", "description": "Create new booking", "auth": "none"},
+        {"method": "DELETE", "path": "/bookingmanagement/v1/booking/{id}", "description": "Delete booking", "auth": "none"},
+        {"method": "POST", "path": "/bookingmanagement/v1/booking/search", "description": "Search bookings (paginated)", "auth": "MANAGER/WAITER"},
+        {"method": "GET", "path": "/bookingmanagement/v1/invitedguest/{id}", "description": "Get invited guest", "auth": "none"},
+        {"method": "POST", "path": "/bookingmanagement/v1/invitedguest", "description": "Save invited guest", "auth": "none"},
+        {"method": "DELETE", "path": "/bookingmanagement/v1/invitedguest/{id}", "description": "Delete invited guest", "auth": "none"},
+        {"method": "POST", "path": "/bookingmanagement/v1/invitedguest/search", "description": "Search invited guests", "auth": "none"},
+        {"method": "GET", "path": "/bookingmanagement/v1/invitedguest/accept/{token}", "description": "Accept invite", "auth": "none"},
+        {"method": "GET", "path": "/bookingmanagement/v1/invitedguest/decline/{token}", "description": "Decline invite", "auth": "none"},
+        {"method": "GET", "path": "/bookingmanagement/v1/booking/cancel/{token}", "description": "Cancel booking", "auth": "none"}
+      ],
+      "order": [
+        {"method": "GET", "path": "/ordermanagement/v1/order/{id}", "description": "Get order by ID", "auth": "none"},
+        {"method": "POST", "path": "/ordermanagement/v1/order", "description": "Create order", "auth": "none"},
+        {"method": "DELETE", "path": "/ordermanagement/v1/order/{id}", "description": "Delete order", "auth": "none"},
+        {"method": "GET", "path": "/ordermanagement/v1/order/cancelorder/{id}", "description": "Cancel order", "auth": "none"},
+        {"method": "POST", "path": "/ordermanagement/v1/order/search", "description": "Search orders (paginated)", "auth": "MANAGER/WAITER"},
+        {"method": "POST", "path": "/ordermanagement/v1/ordereddishes/history", "description": "Get ordered dishes history", "auth": "MANAGER"}
+      ],
+      "dish": [
+        {"method": "POST", "path": "/dishmanagement/v1/dish/search", "description": "Search dishes with filters", "auth": "none"},
+        {"method": "GET", "path": "/dishmanagement/v1/dish/{id}", "description": "Get dish by ID", "auth": "none"}
+      ],
+      "user": [
+        {"method": "POST", "path": "/usermanagement/v1/user/register", "description": "Register new user", "auth": "none"},
+        {"method": "GET", "path": "/usermanagement/v1/user/pairing/{username}", "description": "Get 2FA QR code", "auth": "authenticated"},
+        {"method": "GET", "path": "/usermanagement/v1/user/twofactor/{username}", "description": "Get 2FA status", "auth": "authenticated"},
+        {"method": "POST", "path": "/usermanagement/v1/user/twofactor", "description": "Update 2FA status", "auth": "authenticated"}
+      ],
+      "prediction": [
+        {"method": "POST", "path": "/predictionmanagement/v1/prediction", "description": "Get next-week demand prediction", "auth": "MANAGER"}
+      ],
+      "clustering": [
+        {"method": "POST", "path": "/clustermanagement/v1/cluster", "description": "Get geo clusters", "auth": "MANAGER"}
+      ],
+      "auth": [
+        {"method": "POST", "path": "/login", "description": "Authenticate and receive JWT", "auth": "none"}
+      ]
+    },
+    "node_backend": {
+      "base_path": "/services/rest",
+      "booking": [
+        {"method": "POST", "path": "/bookingmanagement/v1/booking", "description": "Create new booking", "auth": "optional"},
+        {"method": "POST", "path": "/bookingmanagement/v1/booking/search", "description": "Search bookings", "auth": "WAITER"},
+        {"method": "GET", "path": "/bookingmanagement/v1/invitedguest/accept/:token", "description": "Accept invite", "auth": "none"},
+        {"method": "GET", "path": "/bookingmanagement/v1/invitedguest/decline/:token", "description": "Decline invite", "auth": "none"},
+        {"method": "GET", "path": "/bookingmanagement/v1/booking/cancel/:token", "description": "Cancel booking", "auth": "none"}
+      ],
+      "order": [
+        {"method": "POST", "path": "/ordermanagement/v1/order", "description": "Create order", "auth": "none"},
+        {"method": "POST", "path": "/ordermanagement/v1/order/search", "description": "Search orders", "auth": "WAITER"},
+        {"method": "GET", "path": "/ordermanagement/v1/order/cancelorder/:id", "description": "Cancel order", "auth": "none"}
+      ]
+    }
+  }
+}

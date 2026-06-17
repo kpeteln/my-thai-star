@@ -1,0 +1,205 @@
+{
+  "generator": "bpmn-generator",
+  "generated_at": "2025-01-01T00:00:00Z",
+  "application": "My Thai Star Restaurant Management System",
+  "repository": "kpeteln/my-thai-star",
+  "description": "BPMN 2.0 business process diagrams generated from source code analysis of the My Thai Star Java Spring Boot and NestJS backends",
+  "source_files_analyzed": [
+    "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/bookingmanagement/logic/impl/BookingmanagementImpl.java",
+    "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/ordermanagement/logic/impl/OrdermanagementImpl.java",
+    "node/src/app/booking/services/use-cases/create-booking.use-case.ts",
+    "node/src/app/booking/services/use-cases/cancel-booking.use-case.ts",
+    "node/src/app/booking/services/use-cases/get-table.use-case.ts",
+    "node/src/app/booking/services/use-cases/update-invited-guest.use-case.ts",
+    "node/src/app/booking/services/booking.service.ts",
+    "node/src/app/order/services/use-cases/create-order.use-case.ts",
+    "node/src/app/order/services/use-cases/delete-order.use-case.ts",
+    "node/src/app/core/auth/services/auth.service.ts",
+    "node/src/app/core/user/services/user.service.ts"
+  ],
+  "output_directory": "documentation/",
+  "note": "Output written to documentation/ because analysis_output/ directory did not exist and could not be auto-created",
+  "processes": [
+    {
+      "process_id": "PROC-001",
+      "process_name": "Table Booking Process",
+      "file": "documentation/bpmn-01-table-booking-process.md",
+      "participants": ["Customer", "Booking Management System", "Email Service"],
+      "start_events": 1,
+      "end_events": 4,
+      "tasks": 12,
+      "gateways": 5,
+      "error_paths": ["Validation Error", "NoFreeTablesException", "Mail delivery failure"],
+      "key_tokens": ["CB_YYYYMMDD_MD5(email+timestamp)", "GB_YYYYMMDD_MD5(email+timestamp)"],
+      "key_business_rules": [
+        "Token format: CB_ for host, GB_ for each invited guest",
+        "Expiration = bookingDate minus 1 hour",
+        "COMMON booking: table assigned immediately (seats >= assistants)",
+        "INVITED booking: table assigned later as guests respond",
+        "All invited guests receive email with accept/decline links",
+        "Host receives booking confirmation with CB_ token and cancellation link"
+      ]
+    },
+    {
+      "process_id": "PROC-002",
+      "process_name": "Guest Invitation Response Process",
+      "file": "documentation/bpmn-02-guest-invitation-process.md",
+      "participants": ["Guest", "Booking Management System", "Email Service", "Host"],
+      "start_events": 2,
+      "end_events": 4,
+      "tasks": 10,
+      "gateways": 4,
+      "error_paths": ["Invalid GB_ token (Accept)", "Invalid GB_ token (Decline)"],
+      "key_business_rules": [
+        "accepted=true is mandatory before a guest can place an order",
+        "Declining deletes any existing guest orders",
+        "Host notified on every accept/decline action",
+        "Guest receives confirmation email on both accept and decline"
+      ]
+    },
+    {
+      "process_id": "PROC-003",
+      "process_name": "Order Placement Process",
+      "file": "documentation/bpmn-03-order-placement-process.md",
+      "participants": ["Customer/Guest", "Order Management System", "Email Service"],
+      "start_events": 1,
+      "end_events": 7,
+      "tasks": 11,
+      "gateways": 6,
+      "error_paths": [
+        "WrongTokenException",
+        "NoBookingException",
+        "OrderAlreadyExistException (host)",
+        "NoInviteException",
+        "GuestNotAcceptedException",
+        "OrderAlreadyExistException (guest)"
+      ],
+      "price_formula": "(dish.price + sum(extras.price)) * quantity per line",
+      "key_business_rules": [
+        "Token prefix must be CB_ or GB_ (WrongTokenException otherwise)",
+        "CB_: booking must exist, must have no prior order",
+        "GB_: invite must exist, guest.accepted must be true, no prior order",
+        "Price calculated server-side per order line",
+        "Confirmation email with itemised receipt and cancel link sent after save"
+      ]
+    },
+    {
+      "process_id": "PROC-004",
+      "process_name": "Order Cancellation Process",
+      "file": "documentation/bpmn-04-order-cancellation-process.md",
+      "participants": ["Customer/Guest", "Order Management System"],
+      "start_events": 1,
+      "end_events": 3,
+      "tasks": 5,
+      "gateways": 2,
+      "error_paths": ["WrongIdException", "CancelNotAllowedException"],
+      "time_window_formula": "now < (bookingDate - hoursLimit * 3600000 ms)",
+      "key_business_rules": [
+        "Cancellation only allowed within hoursLimit hours before booking date",
+        "Order lines deleted before parent order (referential integrity)",
+        "No cancellation email sent"
+      ]
+    },
+    {
+      "process_id": "PROC-005",
+      "process_name": "Booking Cancellation Process",
+      "file": "documentation/bpmn-05-booking-cancellation-process.md",
+      "participants": ["Customer", "Booking Management System", "Email Service"],
+      "start_events": 1,
+      "end_events": 3,
+      "tasks": 9,
+      "gateways": 3,
+      "error_paths": ["InvalidTokenException", "CancelInviteNotAllowedException"],
+      "deletion_cascade": "GuestOrders -> InvitedGuests -> BookingOrders -> Booking",
+      "key_business_rules": [
+        "Same hoursLimit window as order cancellation",
+        "Node.js: compares against stored expirationDate",
+        "Full cascade: all guest records and orders deleted before booking",
+        "Host and all guests receive cancellation notification emails"
+      ]
+    },
+    {
+      "process_id": "PROC-006",
+      "process_name": "User Registration and Authentication Process",
+      "file": "documentation/bpmn-06-user-auth-process.md",
+      "participants": ["User", "Authentication System"],
+      "start_events": 2,
+      "end_events": 5,
+      "tasks": 8,
+      "gateways": 4,
+      "error_paths": ["UserAlreadyExistsException", "InvalidUserException"],
+      "security": {
+        "password_hashing": "BCrypt, salt rounds = 12",
+        "token_type": "JWT (JSON Web Token)",
+        "default_role": "ROLE_Customer",
+        "2fa": "TOTP available in Java backend only"
+      },
+      "key_business_rules": [
+        "Passwords always BCrypt hashed (never plain text)",
+        "New users always assigned ROLE_Customer",
+        "Duplicate usernames rejected",
+        "Successful login returns JWT token",
+        "JWT required for protected endpoints"
+      ]
+    },
+    {
+      "process_id": "PROC-007",
+      "process_name": "Waiter Cockpit Process",
+      "file": "documentation/bpmn-07-waiter-cockpit-process.md",
+      "participants": ["Waiter", "System"],
+      "start_events": 1,
+      "end_events": 2,
+      "tasks": 7,
+      "gateways": 2,
+      "error_paths": ["HTTP 403 Forbidden - insufficient role"],
+      "required_permissions": ["PERMISSION_FIND_BOOKING", "PERMISSION_FIND_ORDER"],
+      "key_business_rules": [
+        "ROLE_Waiter or ROLE_Manager required",
+        "Read-only view of all bookings and orders",
+        "Filter by date, sort by various criteria",
+        "Paginated responses"
+      ]
+    },
+    {
+      "process_id": "PROC-008",
+      "process_name": "Menu Management Process",
+      "file": "documentation/bpmn-08-menu-management-process.md",
+      "participants": ["Manager", "Dish Management System"],
+      "start_events": 1,
+      "end_events": 6,
+      "tasks": 10,
+      "gateways": 5,
+      "error_paths": ["HTTP 403 Forbidden", "Validation Error", "Dish Not Found"],
+      "key_business_rules": [
+        "ROLE_Manager required for all write operations",
+        "Read operations (browse menu) available to all including anonymous",
+        "Dish hierarchy: Category -> Dish -> Extras (Ingredients)",
+        "Images linked to dish records",
+        "Changes immediately visible in menu"
+      ]
+    }
+  ],
+  "global_business_rules": {
+    "token_cb_format": "CB_YYYYMMDD_MD5(email+date+time)",
+    "token_gb_format": "GB_YYYYMMDD_MD5(email+date+time)",
+    "token_algorithm": "MD5 hex digest",
+    "booking_expiration": "bookingDate - Duration.ofHours(1)",
+    "cancellation_window": "now < bookingDate - (hoursLimit * 3600000 ms)",
+    "cancellation_config_key": "mythaistar.hourslimitcancellation",
+    "password_algorithm": "BCrypt, salt rounds = 12",
+    "auth_token_type": "JWT",
+    "price_calculation": "(dish.price + sum(extras.price)) * quantity",
+    "table_selection": "seats >= assistants within [bookingDate-1hr, bookingDate]",
+    "guest_order_prerequisite": "invitedGuest.accepted = true",
+    "one_order_per_booking": "booking.orderId must be null",
+    "one_order_per_guest": "invitedGuest.orderId must be null"
+  },
+  "roles": {
+    "ROLE_Customer": ["browse menu", "create booking", "place own order", "cancel own order", "accept/decline invite"],
+    "ROLE_Waiter": ["all customer actions", "view all bookings (PERMISSION_FIND_BOOKING)", "view all orders (PERMISSION_FIND_ORDER)", "waiter cockpit"],
+    "ROLE_Manager": ["all waiter actions", "create/update/delete dishes", "full CRUD access"]
+  },
+  "diagram_format": "Mermaid flowchart (flowchart TD / LR / stateDiagram-v2 / gantt)",
+  "total_processes": 8,
+  "total_diagrams": 18
+}

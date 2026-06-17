@@ -1,0 +1,743 @@
+{
+  "application": {
+    "name": "My Thai Star",
+    "version": "3.2.0-SNAPSHOT",
+    "description": "A full-stack reference restaurant management application built on the Devon4j/devonfw framework, demonstrating best practices across Angular frontend, Java Spring Boot backend, and Node.js NestJS backend.",
+    "purpose": "Serves as a reference application to demonstrate modern enterprise application development patterns including REST APIs, JWT security, two-factor authentication, role-based access control, email notifications, table reservation management, order processing, ML-based demand prediction, and customer clustering.",
+    "technical_stack": {
+      "frontend": "Angular 11+ with NgRx state management, Angular Material UI, Transloco i18n, Service Workers (PWA)",
+      "backend_java": "Devon4j / Spring Boot 2.4.4, JAX-RS REST, Spring Security, Hibernate JPA, H2/SAP HANA",
+      "backend_node": "NestJS (Node.js), TypeORM, Passport JWT, Swagger/OpenAPI, Winston logging",
+      "build_tools": "Maven (Java), npm/yarn (Angular, Node.js)"
+    },
+    "architecture_patterns": [
+      "Layered architecture (Service → Logic → DataAccess)",
+      "Repository pattern (Spring Data JPA / TypeORM custom repositories)",
+      "Use Case pattern (Node.js backend)",
+      "Transfer Object (ETO/CTO) pattern",
+      "Component Facade pattern (Java backend)",
+      "NgRx Redux pattern (Angular frontend)",
+      "Observer/Reactive pattern (RxJS in Angular)",
+      "RBAC (Role-Based Access Control)"
+    ]
+  },
+  "files": [
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/bookingmanagement/logic/impl/BookingmanagementImpl.java",
+      "summary": "Core business logic for all booking lifecycle operations including creation, confirmation, cancellation, and guest invitation management.",
+      "category": "Business",
+      "description": "Manages the complete booking lifecycle for the restaurant. Handles creation of common table reservations and group invitation events, generates unique MD5-based booking tokens, sets expiration dates (booking date minus 1 hour), sends email confirmations to hosts and invitations to guests, and manages the cancellation workflow including cascading guest order deletions. Supports two booking modes: COMMON (single party reservation) and INVITED (group event with invited guests).",
+      "business_rules": [
+        "Booking token is generated using MD5 hash of email + date + time, prefixed with 'CB_' for common bookings",
+        "Guest invitation tokens are prefixed with 'GB_'",
+        "Booking expiration date is set to booking date minus 1 hour",
+        "Booking creation date is set to current timestamp",
+        "New bookings are initialized with canceled=false",
+        "When a booking is deleted, all associated orders are deleted first (cascade delete)",
+        "When a guest is deleted, all associated guest orders are deleted first",
+        "Cancellation of an invite requires a valid booking token and must be within the cancellation time limit",
+        "When a guest accepts an invite, their accepted status is set to true and confirmation emails are sent to both host and guest",
+        "When a guest declines an invite, all guest orders are deleted and acceptance is set to false",
+        "Confirmation email to host includes booking token, date, guest list, and cancellation link",
+        "Invitation email to guests includes accept and decline links using guest token",
+        "Assistants count must be at minimum 1 (validated by @Min annotation)",
+        "Assistants count must be at most 2 digits (no decimal places)"
+      ],
+      "technical_libraries": ["Spring Data JPA", "Spring Security", "Devonfw Security Module", "Orika BeanMapper"],
+      "business_capability": "Reservation Management",
+      "sub_capability": "Booking Lifecycle",
+      "method_breakdown": [
+        {
+          "method_name": "findBooking",
+          "summary": "Retrieves a booking by its ID including all related entities (table, order, invited guests, orders list)",
+          "parameters": ["id (Long): Primary key of the booking"],
+          "returns": "BookingCto: Composite Transfer Object with booking, table, order, invited guests",
+          "dependencies": ["BookingRepository"],
+          "significance": "Core read operation for booking data"
+        },
+        {
+          "method_name": "saveBooking",
+          "summary": "Creates a new booking with token generation, expiration date calculation, invited guest setup, and email notifications",
+          "parameters": ["booking (BookingCto): Booking details and list of invited guests"],
+          "returns": "BookingEto: Created booking entity transfer object with generated ID",
+          "dependencies": ["BookingRepository", "InvitedGuestRepository", "Mail service"],
+          "significance": "Primary booking creation entry point with full workflow including email notifications"
+        },
+        {
+          "method_name": "deleteBooking",
+          "summary": "Deletes a booking and all associated orders via cascade",
+          "parameters": ["bookingId (Long): ID of booking to delete"],
+          "returns": "boolean: true if deletion succeeded",
+          "dependencies": ["OrderRepository", "BookingRepository"],
+          "significance": "Ensures referential integrity by deleting orders before the booking"
+        },
+        {
+          "method_name": "acceptInvite",
+          "summary": "Marks an invited guest's status as accepted and sends confirmation emails to both host and guest",
+          "parameters": ["guestToken (String): The guest's unique token"],
+          "returns": "InvitedGuestEto: Updated invited guest record",
+          "dependencies": ["InvitedGuestRepository", "BookingRepository", "Mail service"],
+          "significance": "Manages the guest acceptance workflow"
+        },
+        {
+          "method_name": "declineInvite",
+          "summary": "Marks a guest as declined, deletes any guest orders, and notifies host",
+          "parameters": ["guestToken (String): The guest's unique token"],
+          "returns": "InvitedGuestEto: Updated invited guest record with accepted=false",
+          "dependencies": ["InvitedGuestRepository", "OrderRepository", "Mail service"],
+          "significance": "Handles guest rejection workflow including order cleanup"
+        },
+        {
+          "method_name": "cancelInvite",
+          "summary": "Cancels an entire booking by token, deletes all guests and orders, validates cancellation time window",
+          "parameters": ["bookingToken (String): The host's booking token"],
+          "returns": "void",
+          "dependencies": ["BookingRepository", "InvitedGuestRepository", "OrderRepository", "Mail service"],
+          "significance": "Full booking cancellation with cascading cleanup and notification"
+        },
+        {
+          "method_name": "buildToken",
+          "summary": "Generates a unique token for a booking or guest using MD5 hash of email and timestamp",
+          "parameters": ["email (String): Email of host or guest", "type (String): Token prefix 'CB_' or 'GB_'"],
+          "returns": "String: Formatted token with prefix + date + MD5 hash",
+          "dependencies": ["MessageDigest (MD5)"],
+          "significance": "Security-critical token generation used for authorization of booking operations"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/ordermanagement/logic/impl/OrdermanagementImpl.java",
+      "summary": "Core business logic for order processing including creation, validation, cancellation, and dish ordering statistics.",
+      "category": "Business",
+      "description": "Manages the complete order lifecycle including order creation with token validation, order line processing with dish extras, cancellation time-window enforcement, and email confirmations with itemized pricing. Validates that orders are associated with valid bookings or accepted guests and prevents duplicate orders per booking. Also provides analytics on ordered dishes per day and per month.",
+      "business_rules": [
+        "Orders must be associated with a valid booking token starting with 'CB_' (common) or 'GB_' (guest)",
+        "Invalid token prefix throws WrongTokenException",
+        "Common bookings (CB_) require an existing valid booking; if not found, throws NoBookingException",
+        "Guest bookings (GB_) require an existing accepted invited guest; if not found, throws NoInviteException",
+        "Only one order is allowed per booking or per invited guest (OrderAlreadyExistException)",
+        "Order cancellation is only allowed if current time is before the cancellation limit (booking date minus hoursLimit hours)",
+        "CancelNotAllowedException is thrown if cancellation window has expired",
+        "Order confirmation email is sent after order creation with itemized dish costs and extras",
+        "Email includes a cancellation link using the order ID",
+        "Order total price includes dish base price multiplied by quantity plus selected extras prices",
+        "Order line extras are deduplicated using a HashSet before price calculation",
+        "Default pageable falls back to pageNumber=1, pageSize=5 if not provided"
+      ],
+      "technical_libraries": ["Spring Data JPA", "Spring Security (@RolesAllowed)", "Devonfw BeanMapper"],
+      "business_capability": "Order Management",
+      "sub_capability": "Order Processing and Validation",
+      "method_breakdown": [
+        {
+          "method_name": "saveOrder",
+          "summary": "Creates an order with full validation: token type check, booking/guest existence, duplicate check, then persists order and lines",
+          "parameters": ["order (OrderCto): Order composite object with booking token and order lines"],
+          "returns": "OrderEto: Saved order entity transfer object",
+          "dependencies": ["OrderRepository", "OrderLineRepository", "Bookingmanagement", "Mail service"],
+          "significance": "Primary order creation method with full validation workflow"
+        },
+        {
+          "method_name": "deleteOrder",
+          "summary": "Validates cancellation window then deletes order lines and order record",
+          "parameters": ["orderId (Long): ID of the order to delete"],
+          "returns": "boolean: true if deletion was successful",
+          "dependencies": ["OrderRepository", "OrderLineRepository", "Bookingmanagement"],
+          "significance": "Enforces time-based cancellation policy"
+        },
+        {
+          "method_name": "getValidatedOrder",
+          "summary": "Validates token type and ensures booking/guest exists and has no existing order",
+          "parameters": ["token (String): booking or guest token", "orderEntity (OrderEntity): Order to validate"],
+          "returns": "OrderEntity: Validated order entity with booking/guest IDs set",
+          "dependencies": ["Bookingmanagement"],
+          "significance": "Central validation step preventing duplicate orders and unauthorized order creation"
+        },
+        {
+          "method_name": "getOrderType",
+          "summary": "Determines booking type based on token prefix (CB_ or GB_)",
+          "parameters": ["token (String): the booking or guest token"],
+          "returns": "BookingType: COMMON or INVITED enum value",
+          "dependencies": [],
+          "significance": "Token routing logic that determines order processing path"
+        },
+        {
+          "method_name": "cancellationAllowed",
+          "summary": "Checks if the current time is before the cancellation deadline (booking date minus configured hours)",
+          "parameters": ["order (OrderEntity): The order being cancelled"],
+          "returns": "boolean: true if cancellation is still allowed",
+          "dependencies": ["Bookingmanagement"],
+          "significance": "Time-gate business rule enforcement for cancellation policy"
+        },
+        {
+          "method_name": "findOrderedDishes",
+          "summary": "Retrieves analytics data on ordered dishes filtered by DAILY or MONTHLY granularity",
+          "parameters": ["criteria (OrderedDishesSearchCriteriaTo): Search type (DAILY/MONTHLY) and pagination"],
+          "returns": "Page<OrderedDishesCto>: Paginated list of ordered dish statistics",
+          "dependencies": ["OrderedDishesPerDayRepository", "OrderedDishesPerMonthRepository"],
+          "significance": "Management reporting on dish popularity and demand patterns"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/dishmanagement/logic/impl/DishmanagementImpl.java",
+      "summary": "Business logic for managing dishes, categories, and ingredients including image handling and category-based filtering.",
+      "category": "Business",
+      "description": "Manages the restaurant's menu catalog including dish creation and retrieval, category management, ingredient management, and dish image handling. Supports multi-category filtering and Base64 image encoding for frontend consumption. Provides paginated search with category filter post-processing to support multi-tag dish filtering.",
+      "business_rules": [
+        "Dish images are converted to Base64 encoded strings for API response",
+        "Category filtering is applied post-query to support multi-category dish lookup (a dish matching any selected category is included)",
+        "Duplicate dishes are excluded when matching multiple categories",
+        "Dishes can belong to multiple categories (many-to-many relationship)",
+        "Dishes can have multiple optional extras (ingredients) with individual prices",
+        "Default page size falls back to pageNumber=0 if pageable is null"
+      ],
+      "technical_libraries": ["Spring Data JPA", "Orika BeanMapper"],
+      "business_capability": "Menu Management",
+      "sub_capability": "Dish Catalog and Filtering",
+      "method_breakdown": [
+        {
+          "method_name": "findDishCtos",
+          "summary": "Retrieves paginated dish list with images, categories, and extras, applying optional category filters",
+          "parameters": ["criteria (DishSearchCriteriaTo): Search terms, categories, price/likes filters, pagination"],
+          "returns": "Page<DishCto>: Paginated dish composite objects with images and extras",
+          "dependencies": ["DishRepository", "ImageRepository"],
+          "significance": "Main dish browsing API used by the restaurant menu page"
+        },
+        {
+          "method_name": "findDish",
+          "summary": "Retrieves a single dish by ID with all related categories, image, and extras",
+          "parameters": ["id (Long): Dish primary key"],
+          "returns": "DishCto: Full dish composite object",
+          "dependencies": ["DishRepository"],
+          "significance": "Used for detailed dish view and order line construction"
+        },
+        {
+          "method_name": "categoryFilter",
+          "summary": "Filters dish list to include only those matching at least one of the selected category IDs",
+          "parameters": ["dishes (List<DishCto>): Full dish list", "categories (List<CategoryEto>): Selected filter categories"],
+          "returns": "List<DishCto>: Filtered dish list",
+          "dependencies": [],
+          "significance": "Implements the multi-category dish filtering business rule"
+        },
+        {
+          "method_name": "findDishesByCategory",
+          "summary": "Returns dishes filtered by a specific category name",
+          "parameters": ["criteria (DishSearchCriteriaTo): Search criteria", "categoryName (String): Category name to match"],
+          "returns": "Page<DishCto>: Paginated dishes matching the category",
+          "dependencies": ["DishRepository"],
+          "significance": "Supports category-based menu browsing"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/usermanagement/logic/impl/UsermanagementImpl.java",
+      "summary": "User management including registration, authentication support, two-factor authentication, and role management.",
+      "category": "Business",
+      "description": "Manages user accounts for the restaurant system including user registration with password encoding, duplicate username prevention, two-factor authentication (2FA) setup via TOTP/QR codes, and role-based user profile management. Integrates with Spring Security for credential handling and supports manager, waiter, and customer roles.",
+      "business_rules": [
+        "Username must be unique - attempting to save a user with an existing username throws UserAlreadyExistsException",
+        "Passwords are encoded using Spring's PasswordEncoder before storage (never stored in plain text)",
+        "Default userRoleId is set to 0 if not provided during registration",
+        "Two-factor authentication is optional and can be enabled/disabled per user",
+        "TOTP secret is randomly generated (Base32) the first time a QR code is requested, if not already set",
+        "QR code is only generated if the user has two-factor authentication enabled",
+        "User role maps to one of three roles: Manager, Waiter, or Customer"
+      ],
+      "technical_libraries": ["Spring Security (PasswordEncoder)", "AeroGear OTP (TOTP/Base32)", "Spring Data JPA"],
+      "business_capability": "User Management",
+      "sub_capability": "Authentication and Authorization",
+      "method_breakdown": [
+        {
+          "method_name": "saveUser",
+          "summary": "Registers a new user with password encoding and duplicate username validation",
+          "parameters": ["user (UserEto): User details including username, password, roleId"],
+          "returns": "UserEto: Created user entity transfer object",
+          "dependencies": ["UserRepository", "PasswordEncoder"],
+          "significance": "User registration entry point with security enforcement"
+        },
+        {
+          "method_name": "generateUserQrCode",
+          "summary": "Generates a TOTP QR code for 2FA setup, initializing secret if not already set",
+          "parameters": ["username (String): Username for QR code generation"],
+          "returns": "UserQrCodeTo: QR code data including secret and image",
+          "dependencies": ["UserRepository", "QrCodeService"],
+          "significance": "Enables two-factor authentication setup for users"
+        },
+        {
+          "method_name": "saveUserTwoFactor",
+          "summary": "Enables or disables two-factor authentication for a specific user",
+          "parameters": ["user (UserEto): User with updated twoFactorStatus flag"],
+          "returns": "UserEto: Updated user entity",
+          "dependencies": ["UserRepository"],
+          "significance": "Controls 2FA feature toggle per user account"
+        },
+        {
+          "method_name": "findUserProfileByLogin",
+          "summary": "Loads user profile with role for Spring Security authorization",
+          "parameters": ["login (String): Username"],
+          "returns": "UserProfile: Profile containing user ID and role",
+          "dependencies": ["UserRepository"],
+          "significance": "Bridge between user management and Spring Security authorization"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/predictionmanagement/logic/impl/PredictionmanagementImpl.java",
+      "summary": "ML-based next-week dish demand prediction using SAP HANA PAL (Predictive Analytics Library) ARIMA models.",
+      "category": "Mixed",
+      "description": "Implements demand forecasting for restaurant dishes using the Auto-ARIMA time series model from SAP HANA's Predictive Analytics Library. The system trains models on historical order data with weather temperature and holiday flags as covariates, then generates 7-day forecasts for each dish. Predictions inform restaurant inventory and staffing decisions.",
+      "business_rules": [
+        "Predictions are generated per dish for the next 7 days",
+        "Training data includes temperature and holiday information as covariates for each forecast day",
+        "Model retraining is skipped if training data already exists for the given dish and start date (idempotent)",
+        "Training is skipped if no historical data exists",
+        "Old forecast data is deleted before each new prediction run",
+        "ARIMA model is estimated using PAL_AUTOARIMA stored procedure",
+        "Forecast is generated using PAL_ARIMA_FORECAST stored procedure",
+        "Only accessible to users with MANAGER role (PERMISSION_FIND_NEXT_WEEK_PREDICTION)"
+      ],
+      "technical_libraries": ["SAP HANA PAL (via JPA native query)", "Spring Data JPA"],
+      "business_capability": "Analytics and Forecasting",
+      "sub_capability": "Demand Prediction",
+      "method_breakdown": [
+        {
+          "method_name": "getNextWeekPrediction",
+          "summary": "Generates 7-day demand forecast for all dishes using ARIMA models trained on historical data",
+          "parameters": ["criteria (PredictionSearchCriteriaTo): Start date, temperatures, holidays per day"],
+          "returns": "PredictionDataTo: List of daily dish demand predictions",
+          "dependencies": ["PredictionDayDataRepository", "PredictionModelDataRepository", "DishRepository", "EntityManager"],
+          "significance": "Core analytics feature for restaurant demand planning"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/clustermanagement/logic/impl/ClustermanagementImpl.java",
+      "summary": "Geo-spatial customer clustering analysis using k-means or similar clustering algorithms via named query.",
+      "category": "Mixed",
+      "description": "Provides geographic clustering of customer booking data by dish and date range for market analysis. Uses a database-level named query to perform k-means clustering, returning cluster assignments for bookings. Enables the restaurant to identify geographic customer segments and hotspots.",
+      "business_rules": [
+        "Clustering is performed per dish and time window (start/end booking dates)",
+        "Number of clusters (k) is configurable per request",
+        "Only accessible to users with MANAGER role (PERMISSION_FIND_GEO_CLUSTER)"
+      ],
+      "technical_libraries": ["JPA Native Query (SAP HANA clustering)"],
+      "business_capability": "Analytics and Forecasting",
+      "sub_capability": "Customer Geo Clustering",
+      "method_breakdown": [
+        {
+          "method_name": "getGeoClusters",
+          "summary": "Executes geo-spatial customer clustering query for a specific dish within a date range",
+          "parameters": ["criteria (ClusterCriteriaEto): dishId, startBookingdate, endBookingdate, clusters (k)"],
+          "returns": "ClustersDataCto: Clustered booking data with cluster assignments",
+          "dependencies": ["EntityManager (named query: getClusters)"],
+          "significance": "Market intelligence feature for customer geographic analysis"
+        }
+      ]
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/general/common/impl/security/ApplicationAccessControlConfig.java",
+      "summary": "Role-Based Access Control (RBAC) configuration defining permissions and role groups for the application.",
+      "category": "Technical",
+      "description": "Defines all fine-grained permissions and role groups for the application's security model. Three roles are defined: Waiter (can find orders and bookings), Manager (can find bookings, orders, predictions, and geo clusters), and Customer (can find bookings and orders). All CRUD permissions are prefixed with 'mts.'",
+      "business_rules": [
+        "WAITER role has permissions: FindOrder, FindBooking",
+        "MANAGER role has permissions: FindBooking, FindOrder, GetNextWeekPrediction, GetGeoCluster",
+        "CUSTOMER role has permissions: FindBooking, FindOrder",
+        "Permission naming convention: mts.<Action><Entity> (e.g., mts.FindOrder)",
+        "Admin group is available for full access control"
+      ],
+      "technical_libraries": ["Devon4j Security Module (AccessControlConfig)"],
+      "business_capability": "Security",
+      "sub_capability": "Authorization",
+      "method_breakdown": []
+    },
+    {
+      "file": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/general/common/impl/security/BaseUserDetailsService.java",
+      "summary": "Spring Security UserDetailsService implementation that loads user credentials and authorities from the database.",
+      "category": "Technical",
+      "description": "Bridges the Spring Security authentication framework with the application's user management. Loads user credentials by username, maps the user's role to granted authorities via the access control framework, and returns a UserData object for the authentication provider.",
+      "business_rules": [
+        "Authentication fails with UsernameNotFoundException if user does not exist or any error occurs",
+        "User authorities are derived from the access control group tree for the user's role",
+        "Undefined access control IDs are logged as warnings but do not block authentication"
+      ],
+      "technical_libraries": ["Spring Security", "Devon4j Security Module"],
+      "business_capability": "Security",
+      "sub_capability": "Authentication",
+      "method_breakdown": [
+        {
+          "method_name": "loadUserByUsername",
+          "summary": "Loads user by username, resolves role-based authorities, returns Spring Security UserDetails",
+          "parameters": ["username (String): Login username"],
+          "returns": "UserDetails: Spring Security user details with credentials and authorities",
+          "dependencies": ["UserRepository", "Usermanagement", "AccessControlProvider"],
+          "significance": "Critical security method called on every login attempt"
+        }
+      ]
+    },
+    {
+      "file": "node/src/app/booking/services/use-cases/create-booking.use-case.ts",
+      "summary": "NestJS use case for creating bookings with table auto-assignment and email notifications.",
+      "category": "Business",
+      "description": "Implements the booking creation workflow in a transactional context. For COMMON bookings, automatically assigns a free table based on the number of assistants and booking date/time. For INVITED bookings, creates invited guest records. Validates that common bookings do not have invited guests and that free tables are available before proceeding.",
+      "business_rules": [
+        "COMMON bookings cannot have invited guests (throws InvalidBookingException)",
+        "COMMON bookings require a free table with seats >= assistants count",
+        "If no free table is available, throws NoFreeTablesException",
+        "Table availability check window is: booking date minus 1 hour to booking date",
+        "INVITED bookings support multiple invited guests with individual guest tokens",
+        "Booking token format: 'CB_' + date + '_' + md5(email + timestamp)",
+        "Expiration date is set to booking date minus 1 hour",
+        "Creation date is set to current timestamp",
+        "Booking type defaults to COMMON if not specified",
+        "All operations run within a single database transaction",
+        "Email notifications are sent asynchronously after booking creation"
+      ],
+      "technical_libraries": ["NestJS", "TypeORM", "md5", "moment.js"],
+      "business_capability": "Reservation Management",
+      "sub_capability": "Booking Creation",
+      "method_breakdown": [
+        {
+          "method_name": "createBooking",
+          "summary": "Creates a booking transactionally: validates type, assigns table for common bookings, persists invited guests, sends emails",
+          "parameters": ["booking (Booking): Booking data", "invitedGuests (InvitedGuest[]): Optional guest list", "user (User): Optional authenticated user"],
+          "returns": "Promise<Booking>: Created booking entity",
+          "dependencies": ["BookingRepository", "InvitedGuestRepository", "GetTableUseCase", "BookingMailerUseCase"],
+          "significance": "Core booking creation entry point with transactional guarantee"
+        }
+      ]
+    },
+    {
+      "file": "node/src/app/order/services/use-cases/create-order.use-case.ts",
+      "summary": "NestJS use case for creating orders with token validation, guest acceptance check, and pricing.",
+      "category": "Business",
+      "description": "Implements order creation with full token validation and business rule enforcement. Validates booking tokens (CB_/GB_), checks guest acceptance status for invited bookings, prevents duplicate orders per booking/guest, persists order and order lines with extras, calculates total price, and sends order confirmation email.",
+      "business_rules": [
+        "Booking token must start with 'CB_' (common) or 'GB_' (invited guest); otherwise throws InvalidTokenException",
+        "For CB_ tokens: booking must exist; throws InvalidTokenException if not found",
+        "For CB_ tokens: booking must not already have an order; throws OrderAlreadyDoneException",
+        "For GB_ tokens: invited guest must exist; throws InvalidTokenException if not found",
+        "For GB_ tokens: invited guest must have accepted the invitation; throws GuestNotAcceptedException",
+        "For GB_ tokens: invited guest must not already have an order; throws OrderAlreadyDoneException",
+        "Total price = sum of (dish base price + extras prices) * quantity per order line",
+        "Order confirmation email is sent with total price"
+      ],
+      "technical_libraries": ["NestJS", "TypeORM", "class-transformer"],
+      "business_capability": "Order Management",
+      "sub_capability": "Order Creation",
+      "method_breakdown": [
+        {
+          "method_name": "createOrder",
+          "summary": "Creates order with full token validation, duplicate check, guest acceptance enforcement, line persistence, and email notification",
+          "parameters": ["orderLine (OrderLineCTO[]): List of dish + extras order lines", "bookingToken (String): CB_ or GB_ prefixed token"],
+          "returns": "Promise<Order>: Persisted order with populated relations",
+          "dependencies": ["BookingService", "OrderRepository", "OrderLineRepository", "OrderMailerUseCase"],
+          "significance": "Primary order creation with all business rule enforcement"
+        }
+      ]
+    },
+    {
+      "file": "node/src/app/booking/services/use-cases/cancel-booking.use-case.ts",
+      "summary": "NestJS use case for cancelling bookings with expiration date validation and cascade deletion.",
+      "category": "Business",
+      "description": "Handles the booking cancellation workflow by validating the booking token, checking the cancellation time window against the booking's expiration date, performing cascade deletion of invited guests and orders, and sending cancellation emails to host and all guests.",
+      "business_rules": [
+        "Booking must exist for the provided token; throws InvalidTokenException otherwise",
+        "Cancellation is only allowed if current time is before the booking's expirationDate",
+        "If cancellation window has passed, throws InvalidCancelationTimeException",
+        "All invited guests are cascade-deleted when a booking is cancelled",
+        "Cancellation email notifications are sent to the host and all invited guests"
+      ],
+      "technical_libraries": ["NestJS", "TypeORM", "moment.js"],
+      "business_capability": "Reservation Management",
+      "sub_capability": "Booking Cancellation",
+      "method_breakdown": [
+        {
+          "method_name": "cancelBooking",
+          "summary": "Validates token, checks time window, cascade-deletes booking and guests, sends cancellation emails",
+          "parameters": ["token (String): The booking token starting with CB_"],
+          "returns": "Promise<void>",
+          "dependencies": ["BookingRepository", "BookingMailerUseCase"],
+          "significance": "Enforces cancellation business rules and performs complete cleanup"
+        }
+      ]
+    },
+    {
+      "file": "node/src/app/booking/services/use-cases/get-table.use-case.ts",
+      "summary": "NestJS use case for finding an available restaurant table for a given date and party size.",
+      "category": "Business",
+      "description": "Implements the table assignment algorithm for common reservations. Searches for free tables within a 1-hour window before the booking date with sufficient seating capacity for the party. Returns the first available table's ID or undefined if no tables are available.",
+      "business_rules": [
+        "Table search window is from (booking date - 1 hour) to booking date",
+        "Table must have seats >= number of assistants (party size)",
+        "Returns the first available table (no preference weighting)",
+        "If no free table exists, booking creation fails with NoFreeTablesException"
+      ],
+      "technical_libraries": ["NestJS", "TypeORM", "moment.js"],
+      "business_capability": "Reservation Management",
+      "sub_capability": "Table Assignment",
+      "method_breakdown": [
+        {
+          "method_name": "getFreeTable",
+          "summary": "Queries for available tables with sufficient capacity in the booking time window",
+          "parameters": ["bookingDate (Date): The desired booking date", "assistants (number): Party size"],
+          "returns": "Promise<number | undefined>: Table ID or undefined if none available",
+          "dependencies": ["TableRepository"],
+          "significance": "Ensures a table is available before confirming a reservation"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/book-table/services/book-table.service.ts",
+      "summary": "Angular service handling booking creation HTTP calls and booking data composition.",
+      "category": "Technical",
+      "description": "Provides the Angular frontend interface for posting new table bookings to the backend REST API. Composes booking request payloads based on booking type (common reservation vs. group invitation) and handles invited guest email list mapping.",
+      "business_rules": [
+        "Booking type 0 indicates a common table reservation requiring number of assistants",
+        "Booking type 1 indicates a group invitation requiring a list of guest email addresses",
+        "Invited guests are mapped from plain email strings to {email} objects"
+      ],
+      "technical_libraries": ["Angular HttpClient", "RxJS", "lodash"],
+      "business_capability": "Reservation Management",
+      "sub_capability": "Booking Submission",
+      "method_breakdown": [
+        {
+          "method_name": "postBooking",
+          "summary": "Sends booking creation request to the backend REST API",
+          "parameters": ["bookInfo (BookingInfo): Composed booking request payload"],
+          "returns": "Observable<BookingResponse>: Response with booking confirmation",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "Main booking submission API call"
+        },
+        {
+          "method_name": "composeBooking",
+          "summary": "Constructs the booking payload object based on type: adds assistants for common or guest emails for invitation",
+          "parameters": ["invitationData (any): Form data", "type (number): 0=common, 1=invited"],
+          "returns": "Booking: Composed booking request model",
+          "dependencies": [],
+          "significance": "Adapts form data to backend API contract"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/menu/services/menu.service.ts",
+      "summary": "Angular service for fetching filtered dish data and composing menu order items.",
+      "category": "Technical",
+      "description": "Provides Angular frontend services for the menu page, including dish retrieval with filtering (categories, search text, max price, min likes, sorting) and conversion of menu dish views to order model objects. Maintains category name to server ID mapping for filter translation.",
+      "business_rules": [
+        "Category names map to server IDs: mainDishes=0, starters=1, desserts=2, noodle=3, rice=4, curry=5, vegan=6, vegetarian=7, favourites=8",
+        "Sort parameters are cleared if no sort property is specified",
+        "Each dish added to order gets a unique UUID as local identifier",
+        "Initial order line amount defaults to 1 with empty comment"
+      ],
+      "technical_libraries": ["Angular HttpClient", "RxJS", "uuid", "lodash"],
+      "business_capability": "Menu Management",
+      "sub_capability": "Dish Browsing and Ordering",
+      "method_breakdown": [
+        {
+          "method_name": "getDishes",
+          "summary": "Fetches paginated dish list with filters from backend",
+          "parameters": ["filters (Filter): Category, search, price, likes, pagination filters"],
+          "returns": "Observable<{pageable, content}>: Paginated dish list",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "Core menu data loading operation"
+        },
+        {
+          "method_name": "composeFilters",
+          "summary": "Translates frontend filter form data to backend API filter format with category ID mapping",
+          "parameters": ["pageable (Pageable): Pagination params", "filters (FilterFormData): Form filter values"],
+          "returns": "Filter: Backend-compatible filter object",
+          "dependencies": [],
+          "significance": "Bridges frontend filter UI state to backend search criteria"
+        },
+        {
+          "method_name": "menuToOrder",
+          "summary": "Converts a selected dish view into an order model ready for the order cart",
+          "parameters": ["menu (DishView): Selected dish with extras"],
+          "returns": "Order: New order item with UUID, dish, extras, amount=1",
+          "dependencies": ["uuid"],
+          "significance": "Entry point for adding dishes to the shopping cart"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/cockpit-area/services/waiter-cockpit.service.ts",
+      "summary": "Angular service for the waiter/manager cockpit providing order and reservation management data.",
+      "category": "Technical",
+      "description": "Supplies the waiter and manager cockpit views with order and reservation data from the backend. Supports filtered and unfiltered order searches, reservation searches, and price calculation for order summaries.",
+      "business_rules": [
+        "Orders can be filtered by email or booking token for targeted lookup",
+        "Unfiltered order search does not include email or bookingToken in the request",
+        "Total price is calculated using the shared PriceCalculatorService"
+      ],
+      "technical_libraries": ["Angular HttpClient", "RxJS", "lodash"],
+      "business_capability": "Order Management",
+      "sub_capability": "Waiter Order Cockpit",
+      "method_breakdown": [
+        {
+          "method_name": "getOrders",
+          "summary": "Fetches orders from backend with optional email/token filter and pagination",
+          "parameters": ["pageable (Pageable)", "sorting (Sort[])", "filters (FilterCockpit)"],
+          "returns": "Observable<OrderResponse>: Paginated order list",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "Primary data feed for waiter order management view"
+        },
+        {
+          "method_name": "getReservations",
+          "summary": "Fetches bookings with pagination and sorting for the reservation cockpit",
+          "parameters": ["pageable (Pageable)", "sorting (Sort[])", "filters (FilterCockpit)"],
+          "returns": "Observable<BookingResponse>: Paginated reservation list",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "Primary data feed for reservation management view"
+        },
+        {
+          "method_name": "getTotalPrice",
+          "summary": "Calculates total price for a list of order lines including extras",
+          "parameters": ["orderLines (OrderView[]): List of order view items"],
+          "returns": "number: Total price",
+          "dependencies": ["PriceCalculatorService"],
+          "significance": "Used to display order totals in cockpit"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/sidenav/services/sidenav.service.ts",
+      "summary": "Angular service managing the order cart side panel including order submission with booking token.",
+      "category": "Technical",
+      "description": "Manages the shopping cart side navigation panel state and order submission. Retrieves the current order list from NgRx store, composes the backend order payload with booking token, and submits orders to the REST API. Controls side panel open/close state.",
+      "business_rules": [
+        "Orders must include a booking token to be submitted",
+        "Extras are mapped to ID-only objects for the backend API",
+        "Side nav is automatically closed when orders are submitted"
+      ],
+      "technical_libraries": ["Angular HttpClient", "NgRx Store", "RxJS"],
+      "business_capability": "Order Management",
+      "sub_capability": "Order Cart Submission",
+      "method_breakdown": [
+        {
+          "method_name": "sendOrders",
+          "summary": "Reads current cart from store, composes order payload with token, and posts to backend",
+          "parameters": ["token (String): Booking token for the order"],
+          "returns": "Observable<SaveOrderResponse>: Order creation response",
+          "dependencies": ["HttpClient", "NgRx Store", "ConfigService"],
+          "significance": "Core order submission operation linking cart to backend"
+        },
+        {
+          "method_name": "composeOrders",
+          "summary": "Converts NgRx order store items into backend API order line format",
+          "parameters": ["orders (Order[]): Cart orders from NgRx store"],
+          "returns": "OrderInfo[]: Backend-compatible order line objects",
+          "dependencies": [],
+          "significance": "Data transformation between frontend cart model and API contract"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/sidenav/services/price-calculator.service.ts",
+      "summary": "Shared service for calculating dish and order prices including extras.",
+      "category": "Business",
+      "description": "Provides reusable price calculation logic for individual order items and total order price. Used across the menu cart view and waiter cockpit order summary.",
+      "business_rules": [
+        "Line price = (dish base price + sum of selected extras prices) * quantity",
+        "Total order price = sum of all individual line prices"
+      ],
+      "technical_libraries": ["lodash"],
+      "business_capability": "Order Management",
+      "sub_capability": "Pricing Calculation",
+      "method_breakdown": [
+        {
+          "method_name": "getPrice",
+          "summary": "Calculates price for a single order item: (dish price + extras total) * amount",
+          "parameters": ["order (OrderView | OrderViewResult): Order item with dish, extras, and quantity"],
+          "returns": "number: Calculated line total",
+          "dependencies": [],
+          "significance": "Core pricing formula applied consistently across frontend views"
+        },
+        {
+          "method_name": "getTotalPrice",
+          "summary": "Sums all order line prices for a complete order total",
+          "parameters": ["orders (OrderView[]): List of order lines"],
+          "returns": "number: Total order price",
+          "dependencies": [],
+          "significance": "Displays final order cost to customer and waiter"
+        }
+      ]
+    },
+    {
+      "file": "angular/src/app/user-area/services/user-area.service.ts",
+      "summary": "Angular service handling user authentication, registration, two-factor setup, and password management.",
+      "category": "Technical",
+      "description": "Manages all user-related operations from the Angular frontend including login (JWT token retrieval), user registration, 2FA pairing via QR code, 2FA status toggle, and password change. Dispatches NgRx actions for auth state management and uses snackbar notifications for user feedback.",
+      "business_rules": [
+        "Login sends credentials to the backend and expects a JWT token in the response",
+        "Registration requires username, password, and email",
+        "Two-factor pairing retrieves a QR code for TOTP authenticator setup",
+        "Two-factor status can be toggled per user",
+        "Password change requires old password for verification",
+        "Logout dispatches NgRx logout action to clear auth state"
+      ],
+      "technical_libraries": ["Angular HttpClient", "NgRx Store", "RxJS", "Transloco"],
+      "business_capability": "User Management",
+      "sub_capability": "Frontend Authentication",
+      "method_breakdown": [
+        {
+          "method_name": "login",
+          "summary": "Posts credentials to backend login endpoint and returns HTTP response with JWT",
+          "parameters": ["username (String)", "password (String)"],
+          "returns": "Observable<any>: HTTP response with JWT token in header",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "Authentication entry point"
+        },
+        {
+          "method_name": "register",
+          "summary": "Posts new user registration data to backend",
+          "parameters": ["username (String)", "password (String)", "email (String)"],
+          "returns": "Observable<any>: Registration result",
+          "dependencies": ["HttpClient", "ConfigService"],
+          "significance": "New user self-registration"
+        },
+        {
+          "method_name": "pairing",
+          "summary": "Fetches QR code data for 2FA TOTP setup for the current logged-in user",
+          "parameters": [],
+          "returns": "Observable<TwoFactorResponse>: QR code and secret data",
+          "dependencies": ["HttpClient", "AuthService"],
+          "significance": "Two-factor authentication enrollment"
+        }
+      ]
+    }
+  ],
+  "packages": {
+    "java_backend": {
+      "bookingmanagement": "Complete reservation lifecycle: booking creation, token generation, invited guest management, table association, email notifications, and cancellation",
+      "ordermanagement": "Order processing: token validation, order line management with extras, price calculation, cancellation window enforcement, dish analytics",
+      "dishmanagement": "Menu catalog: dish CRUD, category management, ingredient/extra management, image handling, multi-category filtering",
+      "usermanagement": "User accounts: registration, password encoding, role management, 2FA (TOTP/QR code)",
+      "predictionmanagement": "Demand forecasting: SAP HANA PAL ARIMA model training and next-week prediction",
+      "clustermanagement": "Customer geo-clustering: k-means customer geographic analysis by dish",
+      "imagemanagement": "Dish image storage and retrieval",
+      "mailservice": "Email notification abstraction for booking and order confirmations",
+      "general": "Cross-cutting: security config, RBAC, base entities, exception handling, bean mapping"
+    },
+    "node_backend": {
+      "booking": "Booking creation, search, invite management, cancellation with use-case pattern",
+      "order": "Order creation, deletion, search with use-case pattern",
+      "dish": "Dish catalog retrieval and search",
+      "image": "Image retrieval",
+      "core": "Authentication, user management, JWT guards, role decorators",
+      "shared": "Base entities, DTOs, filters, validators, logging"
+    },
+    "angular_frontend": {
+      "book-table": "Booking form: common reservation and group invitation forms with NgRx state",
+      "menu": "Dish catalog browsing, filtering, and adding to cart",
+      "sidenav": "Order cart: management, price display, and order submission",
+      "cockpit-area": "Waiter/Manager views: order cockpit, reservation cockpit, prediction and clustering panels",
+      "user-area": "Login, registration, 2FA setup, password management",
+      "header": "Application navigation and auth status display",
+      "home": "Landing page",
+      "email-confirmations": "Handles email action links (accept/decline/cancel)",
+      "core": "Auth guards, interceptors, config, animations, utilities",
+      "shared": "Shared models (backend interfaces, view models), shared module"
+    }
+  }
+}
