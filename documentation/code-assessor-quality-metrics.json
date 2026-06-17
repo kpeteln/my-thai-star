@@ -1,0 +1,479 @@
+{
+  "assessment_meta": {
+    "project": "My Thai Star",
+    "assessment_date": "2025-01-30",
+    "assessed_by": "code-assessor",
+    "repository": "kpeteln/my-thai-star",
+    "stacks_assessed": ["Java/Spring Boot", "Angular/NgRx", "Node.js/NestJS"]
+  },
+  "overall_project_score": 6.1,
+  "stack_scores": {
+    "java_backend": {
+      "overall": 6.0,
+      "code_complexity": 6,
+      "logic_complexity": 7,
+      "maintainability": 6,
+      "testability": 4,
+      "security": 5,
+      "documentation": 6,
+      "summary": "Well-structured Devon4j layered architecture with clear domain separation, but contains cryptographic weaknesses, thread-safety issues, N+1 query patterns, null-returning methods, and significant test debt."
+    },
+    "angular_frontend": {
+      "overall": 6.4,
+      "code_complexity": 5,
+      "logic_complexity": 5,
+      "maintainability": 7,
+      "testability": 6,
+      "security": 6,
+      "documentation": 5,
+      "summary": "Solid NgRx Redux pattern with feature modules, but suffers from duplicate constants, type mismatches in model interfaces, missing subscription cleanup, hardcoded category-to-ID mappings, and a critical navigation bug in booking effects."
+    },
+    "nodejs_backend": {
+      "overall": 7.0,
+      "code_complexity": 5,
+      "logic_complexity": 6,
+      "maintainability": 7,
+      "testability": 7,
+      "security": 6,
+      "documentation": 7,
+      "summary": "Clean use-case pattern with good test coverage and structured exception handling, but all business exceptions uniformly return HTTP 400, token parsing logic is duplicated across use-cases, order creation is non-transactional, and PII may be leaked in structured logs."
+    }
+  },
+  "files_assessed": [
+    {
+      "file_path": "java/mtsj/core/src/main/java/com/devonfw/application/mtsj/bookingmanagement/logic/impl/BookingmanagementImpl.java",
+      "language": "java",
+      "overall_score": 5.5,
+      "code_complexity": 7,
+      "logic_complexity": 8,
+      "issues": [
+        {
+          "id": "JAVA-001",
+          "line_number": 243,
+          "issue_type": "Security",
+          "criticality": 5,
+          "message": "MD5 used for booking token generation — cryptographically broken hash algorithm",
+          "solution": "Replace MessageDigest.getInstance('MD5') with SecureRandom combined with Base64 encoding, or use UUID.randomUUID() as the entropy source. MD5 is not collision-resistant and its output can be predicted, allowing an attacker to forge booking tokens. Use java.security.SecureRandom to generate 256-bit entropy: byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes); String token = type + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);. Store tokens as salted hashes in the database rather than plaintext.",
+          "estimated_time": 2
+        },
+        {
+          "id": "JAVA-002",
+          "line_number": 75,
+          "issue_type": "Security",
+          "criticality": 5,
+          "message": "Thread-safety violation: mutable instance field 'user' in singleton bean BaseUserDetailsService",
+          "solution": "Remove the 'private UserEntity user' instance field entirely from BaseUserDetailsService. The UserEntity is already loaded in loadUserByUsername and should be a local variable, not instance state. In a Spring singleton bean shared across concurrent requests, writing to an instance field creates a race condition where one thread's user object can be read by another thread. Refactor loadUserByUsername to use only method-local variables, passing the UserEntity directly where needed without storing it.",
+          "estimated_time": 1
+        },
+        {
+          "id": "JAVA-003",
+          "line_number": 77,
+          "issue_type": "Security",
+          "criticality": 4,
+          "message": "CSRF protection explicitly disabled twice in BaseWebSecurityConfig",
+          "solution": "Remove the redundant http.csrf().disable() call on line 77 of BaseWebSecurityConfig, keeping only the single disable in the fluent chain. If CSRF protection is intentionally disabled (stateless JWT API), document the reason clearly with a comment referencing the JWT stateless session policy. Add a CORS configuration bean instead to define allowed origins, headers, and methods explicitly, and consider enabling CSRF for non-API browser-facing endpoints.",
+          "estimated_time": 1
+        },
+        {
+          "id": "JAVA-004",
+          "line_number": 430,
+          "issue_type": "Security",
+          "criticality": 4,
+          "message": "Hardcoded 'http://localhost' protocol and host in email cancellation link — exposes internal topology and breaks production",
+          "solution": "Replace the hardcoded 'http://localhost:' + this.clientPort concatenation with a configurable base URL property: @Value('${mythaistar.client.baseUrl}') private String clientBaseUrl;. Use clientBaseUrl in all link construction methods. This allows deployment-specific configuration, enforces HTTPS in production environments, and avoids leaking internal host information via emails. Validate the configured URL on startup using @PostConstruct.",
+          "estimated_time": 1
+        },
+        {
+          "id": "JAVA-005",
+          "line_number": 446,
+          "issue_type": "Performance",
+          "criticality": 4,
+          "message": "N+1 query anti-pattern in getContentFormatedWithCost — getDish() called per order line inside nested loop",
+          "solution": "In getContentFormatedWithCost, replace the per-line dishManagement.findDish(orderLine.getDishId()) call inside the loop with a single batch fetch before the loop: Map<Long, DishCto> dishMap = dishManagement.findDishesByIds(orderLineIds). Add a findDishesByIds(Collection<Long> ids) method to DishManagement that uses a JPA IN query. This reduces database round-trips from O(n) to O(1) per order confirmation email, significantly improving performance under load.",
+          "estimated_time": 3
+        },
+        {
+          "id": "JAVA-006",
+          "line_number": 191,
+          "issue_type": "Code Structure",
+          "criticality": 3,
+          "message": "processOrders sets orderLines twice — first via getBeanMapper().mapList(), then immediately overwritten",
+          "solution": "Remove the first getBeanMapper().mapList(order.getOrderLines(), OrderLineCto.class) call on line 195 of processOrders. The manually constructed orderLinesCto list built in the subsequent loop is the authoritative value and already accounts for extras and dish details. The first mapping is dead code that wastes CPU cycles and is misleading to future readers. After removal, rename the local list to 'orderLines' for clarity and set it once.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "JAVA-007",
+          "line_number": 171,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "findOrderCtos returns null instead of empty Page when no results found — forces null checks in all callers",
+          "solution": "Replace 'return pagListTo;' with 'return pagListTo != null ? pagListTo : Page.empty();' at the end of findOrderCtos and findBookingCtos. Returning null from a pagination method violates the principle of least surprise and causes NullPointerExceptions in callers that assume a valid Page object. Use Spring Data's Page.empty() or new PageImpl<>(Collections.emptyList()) to return a consistent, non-null empty page. Update findBookingCtos identically.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "JAVA-008",
+          "line_number": 513,
+          "issue_type": "Readability",
+          "criticality": 2,
+          "message": "Inverted ternary '(now > cancellationLimit) ? false : true' adds unnecessary cognitive overhead",
+          "solution": "Replace 'return (now > cancellationLimit) ? false : true;' with 'return now <= cancellationLimit;'. The inverted ternary is logically equivalent but adds cognitive overhead. The direct comparison is immediately readable as 'cancellation is allowed if current time is at or before the cancellation limit'. This is a minor but impactful readability improvement that reduces mental parsing effort.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "JAVA-009",
+          "line_number": 223,
+          "issue_type": "Documentation",
+          "criticality": 2,
+          "message": "Log message says 'OrderLine with id' when logging InvitedGuest creation — copy-paste error",
+          "solution": "Change the LOG.info call at line 223 of saveBooking from 'OrderLine with id {}' to 'InvitedGuest with id {}'. This is a copy-paste error from the order management code that will confuse operators reading logs. Search the entire codebase for similar copy-paste log messages using grep. Standardise log messages across domain boundaries using a consistent format such as '{Entity} with id '{}' has been {action}.'",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "JAVA-010",
+          "line_number": 498,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "getBookingOrGuestEmail returns null for unrecognised token types — null silently propagates into mail sending",
+          "solution": "Replace the 'return null' in the final else branch of getBookingOrGuestEmail with 'throw new WrongTokenException()'. This is consistent with getOrderType which already throws WrongTokenException for bad tokens. The null return creates a silent failure path where mailService.sendMail(null, ...) is called, which could throw a NullPointerException at runtime or send a malformed email. Failing fast with a clear exception is the correct behaviour.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "JAVA-011",
+          "line_number": 1,
+          "issue_type": "Testing",
+          "criticality": 4,
+          "message": "Zero unit tests for BookingmanagementImpl and OrdermanagementImpl — all critical business logic is untested",
+          "solution": "Create BookingmanagementImplTest and OrdermanagementImplTest using JUnit 5 and Mockito. Mock all @Inject dependencies (BookingRepository, OrderManagement, MailService) with @Mock annotations. Test each public method covering: happy path, edge cases (null inputs, empty results), and exception scenarios (NoBookingException, OrderAlreadyExistException, CancelNotAllowedException). Aim for >80% line coverage on logic layer classes. Integrate with Maven Surefire and enforce coverage thresholds via JaCoCo.",
+          "estimated_time": 8
+        }
+      ]
+    },
+    {
+      "file_path": "angular/src/app/cockpit-area/services/waiter-cockpit.service.ts",
+      "language": "typescript",
+      "overall_score": 6.5,
+      "code_complexity": 4,
+      "logic_complexity": 4,
+      "issues": [
+        {
+          "id": "ANG-001",
+          "line_number": 23,
+          "issue_type": "Maintainability",
+          "criticality": 2,
+          "message": "getOrdersRestPath and filterOrdersRestPath are identical constants — redundant dead constant",
+          "solution": "Remove filterOrdersRestPath entirely and replace its only usage on line 50 with getOrdersRestPath. Having two constants with the same value 'ordermanagement/v1/order/search' creates confusion about whether they are intentionally different and will diverge in the future. A single named constant with a descriptive name makes the intent clear. If the paths genuinely need to diverge, add a comment explaining the future intent.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "ANG-002",
+          "line_number": 45,
+          "issue_type": "Code Structure",
+          "criticality": 3,
+          "message": "getOrders mutates the 'filters' input object directly — side effect violates NgRx immutability principle",
+          "solution": "Create a local copy of the filters object before mutating it: const filtersCopy = { ...filters, pageable: { ...pageable, sort: sorting } }. Using spread operator or Object.assign prevents the mutation of the caller's object, which can cause subtle bugs in NgRx state management where state immutability is enforced. The current code mutates 'filters.pageable' and deletes 'filters.email' / 'filters.bookingToken', which modifies the object held by the component and can trigger unexpected re-renders or stale state.",
+          "estimated_time": 1
+        },
+        {
+          "id": "ANG-003",
+          "line_number": 19,
+          "issue_type": "Maintainability",
+          "criticality": 2,
+          "message": "FilterCockpit.bookingToken typed as 'number' in interfaces.ts but booking tokens are strings (CB_/GB_ prefix format)",
+          "solution": "Change the bookingToken property type in the FilterCockpit class from 'number' to 'string' in shared/backend-models/interfaces.ts. Booking tokens are string values (CB_YYYYMMDD_hash / GB_YYYYMMDD_hash format). The current 'number' type is incorrect and forces implicit coercions. After fixing the type, run the TypeScript compiler to catch any cascading type errors and fix them. This improves type safety and removes a potential source of runtime bugs.",
+          "estimated_time": 0.5
+        }
+      ]
+    },
+    {
+      "file_path": "angular/src/app/cockpit-area/order-cockpit/order-cockpit.component.ts",
+      "language": "typescript",
+      "overall_score": 6.0,
+      "code_complexity": 4,
+      "logic_complexity": 3,
+      "issues": [
+        {
+          "id": "ANG-004",
+          "line_number": 67,
+          "issue_type": "Maintainability",
+          "criticality": 3,
+          "message": "langChanges$ subscription in ngOnInit not assigned — declared translocoSubscription is never used for cleanup causing memory leak",
+          "solution": "Store the langChanges$ subscription: this.translocoSubscription = this.translocoService.langChanges$.subscribe(...). The component already declares 'private translocoSubscription = Subscription.EMPTY' but the subscription from langChanges$ is never assigned to it, so it is never unsubscribed in ngOnDestroy. This creates a memory leak when the component is destroyed and recreated (e.g., route navigation). Assign the subscription and confirm ngOnDestroy calls unsubscribe().",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "ANG-005",
+          "line_number": 86,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "applyFilters() has no error handling — HTTP failures silently leave the orders table empty with no user feedback",
+          "solution": "Add a catchError operator to the getOrders observable pipe: .pipe(catchError(err => { this.snackBar.openSnack('Failed to load orders', 4000, 'red'); return of(null); })). Then guard the subscribe callback against the null case. Without error handling, network failures, 401/403 responses, or backend errors leave the table silently empty with no indication to the user or operator. Import catchError from rxjs/operators and inject the SnackBarService.",
+          "estimated_time": 1
+        },
+        {
+          "id": "ANG-006",
+          "line_number": 94,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "totalOrders assignment is outside the null-data guard — will throw TypeError when data is null",
+          "solution": "Move 'this.totalOrders = data.totalElements' inside the else branch alongside 'this.orders = data.content'. In the null guard path (line 89-91), also assign 'this.totalOrders = 0'. The current code accesses data.totalElements unconditionally after potentially setting this.orders = [] when data is null, which throws 'Cannot read property totalElements of null'. The null guard must cover all data accesses.",
+          "estimated_time": 0.5
+        }
+      ]
+    },
+    {
+      "file_path": "angular/src/app/book-table/store/effects/book-table.effects.ts",
+      "language": "typescript",
+      "overall_score": 6.5,
+      "code_complexity": 5,
+      "logic_complexity": 4,
+      "issues": [
+        {
+          "id": "ANG-007",
+          "line_number": 48,
+          "issue_type": "Business Logic",
+          "criticality": 4,
+          "message": "bookTableSuccess$ calls fromRoot.go() as a plain function — creates an action object but never dispatches it, so navigation never occurs",
+          "solution": "Replace 'fromRoot.go({ path: [\"/menu\"] })' with 'this.store.dispatch(fromRoot.go({ path: [\"/menu\"] }))' or inject the Angular Router and call 'this.router.navigate([\"/menu\"])' directly in the tap() side effect. The current code creates an action object but discards it without dispatching, meaning the navigation after successful booking never happens. This is a critical functional bug that breaks the post-booking user flow.",
+          "estimated_time": 1
+        },
+        {
+          "id": "ANG-008",
+          "line_number": 19,
+          "issue_type": "Code Structure",
+          "criticality": 3,
+          "message": "switchMap used for booking submission — concurrent actions cancel in-flight requests; exhaustMap is semantically correct for form submissions",
+          "solution": "Replace switchMap with exhaustMap in both bookTable$ and inviteFriends$ effects. switchMap cancels the previous in-flight HTTP request when a new action arrives, meaning rapid double-clicks will cancel the first booking request and potentially result in lost submissions. exhaustMap ignores new actions while an existing one is in-flight, providing the correct 'submit once' semantics for booking operations. Import exhaustMap from rxjs/operators and update both effects.",
+          "estimated_time": 0.5
+        }
+      ]
+    },
+    {
+      "file_path": "angular/src/app/menu/services/menu.service.ts",
+      "language": "typescript",
+      "overall_score": 6.5,
+      "code_complexity": 4,
+      "logic_complexity": 4,
+      "issues": [
+        {
+          "id": "ANG-009",
+          "line_number": 12,
+          "issue_type": "Maintainability",
+          "criticality": 3,
+          "message": "Hardcoded categoryNameToServerId mapping with magic integer IDs tightly couples frontend to backend database IDs",
+          "solution": "Remove the hardcoded categoryNameToServerId map and replace it with a backend API call that fetches dish categories dynamically: GET /dishmanagement/v1/category. Store the fetched categories in the NgRx store. The current approach tightly couples the frontend to backend database IDs, meaning any backend category reordering or addition requires a synchronized frontend deployment. Using dynamic category loading decouples the stacks and makes the system resilient to backend changes.",
+          "estimated_time": 4
+        },
+        {
+          "id": "ANG-010",
+          "line_number": 64,
+          "issue_type": "Documentation",
+          "criticality": 2,
+          "message": "TODO comment for isFav field — undefined field silently passed in every API dish search request",
+          "solution": "Resolve the TODO on line 64 by either implementing the favourites feature (retrieve favourites from user profile in the NgRx store and populate isFav) or removing the isFav field from the Filter interface entirely if the feature is deferred. Leaving undefined fields in API payloads is fragile — backend validation may reject them in the future or their meaning may be misinterpreted. Document in a GitHub issue if intentionally deferred.",
+          "estimated_time": 2
+        }
+      ]
+    },
+    {
+      "file_path": "node/src/app/order/services/use-cases/create-order.use-case.ts",
+      "language": "typescript",
+      "overall_score": 6.5,
+      "code_complexity": 5,
+      "logic_complexity": 6,
+      "issues": [
+        {
+          "id": "NODE-001",
+          "line_number": 31,
+          "issue_type": "Code Structure",
+          "criticality": 3,
+          "message": "Token prefix parsing (CB_/GB_) duplicated across create-order and booking validation use-cases — DRY violation",
+          "solution": "Extract token type resolution into a shared utility function in the shared module: export function resolveTokenType(token: string): 'COMMON' | 'INVITED' | 'INVALID'. Both CreateOrderUseCase and any booking validation logic should call this shared utility. The CB_/GB_ prefix logic is a core business rule that should live in exactly one place. Centralising it ensures consistent behaviour and makes token format changes a single-point modification.",
+          "estimated_time": 2
+        },
+        {
+          "id": "NODE-002",
+          "line_number": 66,
+          "issue_type": "Error Handling",
+          "criticality": 4,
+          "message": "Non-atomic order creation — Order saved before OrderLines; if OrderLine save fails, orphaned Order record persists",
+          "solution": "Wrap the entire createOrder method body in a TypeORM transaction using Connection.transaction() (as done correctly in CreateBookingUseCase). Use entityManager.save() for both the Order and OrderLine entities within the same transaction callback. If any save fails, the transaction rolls back atomically, preventing orphaned Order records. This is a data integrity issue that can cause corrupted state in the database.",
+          "estimated_time": 3
+        },
+        {
+          "id": "NODE-003",
+          "line_number": 15,
+          "issue_type": "Naming Conventions",
+          "criticality": 1,
+          "message": "Typo in exception class name: GuestNotAccpetedException should be GuestNotAcceptedException",
+          "solution": "Rename GuestNotAccpetedException to GuestNotAcceptedException in the exception file, its barrel export, and all import sites in use-cases. Use IDE refactoring (Rename Symbol) to update all references atomically. Also check if there is a corresponding HTTP response error code — guest not accepted is closer to HTTP 422 Unprocessable Entity than 400 Bad Request since the request format is valid but the business state is invalid.",
+          "estimated_time": 0.5
+        },
+        {
+          "id": "NODE-004",
+          "line_number": 29,
+          "issue_type": "Security",
+          "criticality": 4,
+          "message": "PII logged in debug statements — booking objects containing email addresses are serialized into logs",
+          "solution": "Replace 'booking=${booking}' in WinstonLogger debug calls with structured logging that explicitly selects non-PII fields: 'Executing createOrder. bookingTokenPrefix=${bookingToken.substring(0,3)}, lineCount=${orderLine.length}'. Never log full entity objects that contain emails, names, or other personal data. Implement a sanitize() utility that strips PII fields before logging. This is required for GDPR compliance and prevents sensitive data appearing in log aggregation systems.",
+          "estimated_time": 2
+        }
+      ]
+    },
+    {
+      "file_path": "node/src/app/shared/filters/business-logic.filter.ts",
+      "language": "typescript",
+      "overall_score": 6.0,
+      "code_complexity": 3,
+      "logic_complexity": 3,
+      "issues": [
+        {
+          "id": "NODE-005",
+          "line_number": 16,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "All BusinessLogicExceptions uniformly return HTTP 400 — semantically incorrect for not-found, conflict, or validation errors",
+          "solution": "Add an optional statusCode property to BusinessLogicException and set appropriate HTTP status codes in each concrete exception: InvalidTokenException -> 401/404, OrderAlreadyDoneException -> 409 Conflict, NoFreeTablesException -> 422 Unprocessable Entity. Update BusinessLogicFilter to use exception.statusCode ?? 400. This makes the API semantically correct, allows API consumers to distinguish error types programmatically, and aligns with REST standards.",
+          "estimated_time": 2
+        }
+      ]
+    },
+    {
+      "file_path": "node/src/app/booking/services/use-cases/booking-mailer.use-case.ts",
+      "language": "typescript",
+      "overall_score": 7.0,
+      "code_complexity": 4,
+      "logic_complexity": 4,
+      "issues": [
+        {
+          "id": "NODE-006",
+          "line_number": 82,
+          "issue_type": "Error Handling",
+          "criticality": 3,
+          "message": "sendNewEventEmails fires email promises without awaiting — caller cannot confirm delivery; errors swallowed by .catch(logMailError)",
+          "solution": "If email delivery confirmation is required, make sendNewEventEmails async and return a Promise<void> that resolves after all emails are sent using Promise.all(). If fire-and-forget is intentional, document this explicitly with a comment and ensure the logMailError handler captures enough context (booking ID, recipient) to allow manual follow-up. Consider adding a retry mechanism using a message queue (e.g., Bull) for transient SMTP failures to ensure email delivery reliability.",
+          "estimated_time": 3
+        }
+      ]
+    }
+  ],
+  "enhancements": [
+    {
+      "id": "ENH-001",
+      "title": "Introduce Integration Test Suite for Java Logic Layer",
+      "description": "Refactor the Java backend to include a comprehensive Spring Boot integration test suite covering all three logic layer implementations (BookingmanagementImpl, OrdermanagementImpl, DishmanagementImpl). Use @SpringBootTest with an in-memory H2 database seeded with test fixtures to test complete business workflows end-to-end. This standardises quality assurance across the Java domain modules, catches regression bugs that unit tests miss, and establishes a baseline for measurable code coverage. Target 80% line coverage on the logic layer enforced by JaCoCo Maven plugin.",
+      "example": "@SpringBootTest\n@Transactional\nclass BookingmanagementImplIT {\n  @Autowired\n  private Bookingmanagement bookingManagement;\n\n  @Test\n  void saveBooking_shouldGenerateCB_Token() {\n    BookingCto booking = BookingTestFixture.validBooking();\n    BookingEto result = bookingManagement.saveBooking(booking);\n    assertThat(result.getBookingToken()).startsWith(\"CB_\");\n  }\n\n  @Test\n  void saveBooking_withGuests_shouldGenerateGB_Tokens() {\n    BookingCto booking = BookingTestFixture.bookingWithGuests(2);\n    BookingEto result = bookingManagement.saveBooking(booking);\n    List<InvitedGuestEto> guests =\n      bookingManagement.findInvitedGuestByBooking(result.getId());\n    guests.forEach(g -> assertThat(g.getGuestToken()).startsWith(\"GB_\"));\n  }\n}",
+      "priority": 5
+    },
+    {
+      "id": "ENH-002",
+      "title": "Replace MD5 Token Generation with Cryptographically Secure Token Strategy",
+      "description": "Refactor the token generation in BookingmanagementImpl.buildToken() to use a cryptographically secure random token rather than MD5 of email+timestamp. MD5 is collision-prone and predictable. Standardise token generation as a dedicated TokenService that can be injected and independently tested. The new token service should generate URL-safe Base64-encoded 256-bit random tokens using SecureRandom, prepend the CB_/GB_ type prefix, and optionally sign tokens with HMAC-SHA256 for tamper detection. This eliminates the security vulnerability while preserving the token routing contract.",
+      "example": "@Named\npublic class TokenService {\n  private static final SecureRandom SECURE_RANDOM = new SecureRandom();\n  private static final int TOKEN_BYTES = 32;\n\n  public String generateBookingToken(String prefix) {\n    byte[] bytes = new byte[TOKEN_BYTES];\n    SECURE_RANDOM.nextBytes(bytes);\n    String random = Base64.getUrlEncoder()\n      .withoutPadding().encodeToString(bytes);\n    String date = LocalDate.now()\n      .format(DateTimeFormatter.BASIC_ISO_DATE);\n    return prefix + date + \"_\" + random;\n  }\n}\n\n// In BookingmanagementImpl (replace buildToken calls):\n@Inject private TokenService tokenService;\nbookingEntity.setBookingToken(\n  tokenService.generateBookingToken(\"CB_\"));\ninvite.setGuestToken(\n  tokenService.generateBookingToken(\"GB_\"));",
+      "priority": 5
+    },
+    {
+      "id": "ENH-003",
+      "title": "Standardise HTTP Status Codes in NestJS Exception Hierarchy",
+      "description": "Refactor the NestJS shared exception hierarchy to map business exceptions to semantically correct HTTP status codes. Extend BusinessLogicException with a statusCode field and update BusinessLogicFilter to use it. Create concrete exception subclasses with correct codes: InvalidTokenException (401), ResourceNotFoundException (404), OrderAlreadyDoneException (409), NoFreeTablesException (422). This standardises the API contract across the Node.js backend, allows frontend code to react correctly to different error types, and aligns with REST/RFC 7231 semantics.",
+      "example": "// Base exception with status code\nexport abstract class BusinessLogicException extends Error {\n  abstract readonly statusCode: number;\n}\n\n// Concrete exceptions with correct HTTP codes\nexport class InvalidTokenException\n    extends BusinessLogicException {\n  readonly statusCode = 401;\n  constructor() {\n    super('Invalid or expired booking token');\n  }\n}\n\nexport class OrderAlreadyDoneException\n    extends BusinessLogicException {\n  readonly statusCode = 409;\n}\n\nexport class NoFreeTablesException\n    extends BusinessLogicException {\n  readonly statusCode = 422;\n}\n\n// Updated filter\n@Catch(BusinessLogicException)\nexport class BusinessLogicFilter implements ExceptionFilter {\n  catch(exception: BusinessLogicException, host: ArgumentsHost) {\n    const code = exception.statusCode;\n    response.status(code).json({\n      ...exception.plainObject(), statusCode: code\n    });\n  }\n}",
+      "priority": 4
+    },
+    {
+      "id": "ENH-004",
+      "title": "Implement Dynamic Category Loading in Angular Menu Module",
+      "description": "Refactor the Angular menu module to dynamically fetch dish categories from the backend API rather than relying on the hardcoded categoryNameToServerId mapping in menu.service.ts. Add a category NgRx feature state with actions (loadCategories, loadCategoriesSuccess, loadCategoriesFail), a categories effect, and a categories reducer. This decouples the Angular frontend from backend database IDs, enables runtime category management without frontend deployments, and demonstrates consistent application of the NgRx pattern already used elsewhere in the application.",
+      "example": "// categories.actions.ts\nexport const loadCategories =\n  createAction('[Menu] Load Categories');\nexport const loadCategoriesSuccess = createAction(\n  '[Menu] Load Categories Success',\n  props<{ categories: Category[] }>()\n);\n\n// categories.effects.ts\n@Injectable()\nexport class CategoriesEffects {\n  loadCategories$ = createEffect(() =>\n    this.actions$.pipe(\n      ofType(loadCategories),\n      switchMap(() =>\n        this.menuService.getCategories().pipe(\n          map(cats => loadCategoriesSuccess({ categories: cats })),\n          catchError(err => of(loadCategoriesFail({ error: err })))\n        )\n      )\n    )\n  );\n}\n\n// menu.service.ts - add:\ngetCategories(): Observable<Category[]> {\n  return this.restServiceRoot$.pipe(\n    exhaustMap(root =>\n      this.http.get<Category[]>(\n        `${root}dishmanagement/v1/category`\n      )\n    )\n  );\n}",
+      "priority": 3
+    },
+    {
+      "id": "ENH-005",
+      "title": "Wrap NestJS Order Creation in Database Transaction",
+      "description": "Refactor CreateOrderUseCase.createOrder() to wrap all database operations (Order save, OrderLine save) within a single TypeORM transaction, matching the pattern already used in CreateBookingUseCase. The current non-atomic approach can create orphaned Order records if the OrderLine batch save fails. Using connection.transaction() ensures atomicity — either all entities are persisted or none are, maintaining data integrity. This also opens the door to adding compensating actions within the same transaction boundary.",
+      "example": "async createOrder(\n  orderLine: OrderLineCTO[],\n  bookingToken: string\n): Promise<Order> {\n  return await this.connection.transaction(\n    async (entityManager) => {\n      // Token validation (same as before)\n      // ...\n\n      // Save order within transaction\n      let newOrder = await entityManager.save(\n        Order,\n        new Order({ bookingId, invitedGuestId })\n      );\n\n      // Save all order lines atomically\n      const lines = orderLine.map(elem => {\n        const line = plainToClass(OrderLine, elem.orderLine);\n        line.ingredients = elem.extras;\n        line.orderId = newOrder.id;\n        return line;\n      });\n      await entityManager.save(OrderLine, lines);\n\n      // Reload with relations\n      newOrder = await entityManager.findOne(Order, {\n        where: { id: newOrder.id },\n        relations: [\n          'orderLines',\n          'orderLines.dish',\n          'orderLines.ingredients'\n        ],\n      });\n\n      if (this.orderMailer) {\n        this.orderMailer.sendOrderEmail(\n          booking, newOrder!, this.getTotalPrice(newOrder!)\n        );\n      }\n      return newOrder!;\n  });\n}",
+      "priority": 4
+    },
+    {
+      "id": "ENH-006",
+      "title": "Enforce Cross-Stack OpenAPI Contract with Swagger Validation",
+      "description": "Standardise the API contract definition by enforcing OpenAPI specification validation across all three backends (Java, Node.js, .NET). Add springdoc-openapi to the Java build, use NestJS @nestjs/swagger decorators to generate OpenAPI docs, and validate the Angular service models against the generated specs using openapi-generator in CI. This ensures cross-stack consistency, catches contract drift early, and provides living documentation for API consumers. All three backends currently implement the same domain but with no formal contract enforcement.",
+      "example": "// NestJS: Add Swagger decorators to OrderController\n@ApiTags('ordermanagement')\n@Controller('ordermanagement/v1/order')\nexport class OrderController {\n  @Post()\n  @ApiOperation({ summary: 'Create a new order' })\n  @ApiBody({ type: CreateOrderDto })\n  @ApiResponse({ status: 201, type: OrderResponseDto })\n  @ApiResponse({ status: 400, description: 'Bad request' })\n  @ApiResponse({ status: 409, description: 'Order exists' })\n  async createOrder(\n    @Body() dto: CreateOrderDto\n  ): Promise<OrderResponseDto> {\n    return this.orderService.createOrder(\n      dto.orderLines, dto.bookingToken\n    );\n  }\n}\n\n// Angular: Generate typed service from OpenAPI spec\n// package.json script:\n// \"generate-api\": \"openapi-generator-cli generate\n//   -i http://backend/api-docs\n//   -g typescript-angular\n//   -o src/app/api\"",
+      "priority": 3
+    }
+  ],
+  "technical_debt": [
+    {
+      "id": "TD-001",
+      "debt_type": "Test Debt",
+      "description": "Java logic layer (BookingmanagementImpl, OrdermanagementImpl) has zero unit tests. The entire booking and order business logic — token validation, cancellation time checks, guest invitation workflows — relies only on manual testing. This is the highest-risk technical debt in the project as it makes refactoring dangerous and regressions invisible.",
+      "impact": "HIGH",
+      "estimated_fix_time": 16
+    },
+    {
+      "id": "TD-002",
+      "debt_type": "Security Debt",
+      "description": "MD5 is used as the hashing algorithm for booking token generation (BookingmanagementImpl.buildToken). MD5 is cryptographically broken — vulnerable to collision attacks and preimage attacks. This means booking tokens could potentially be predicted or forged, allowing unauthorized access to bookings.",
+      "impact": "HIGH",
+      "estimated_fix_time": 3
+    },
+    {
+      "id": "TD-003",
+      "debt_type": "Code Debt",
+      "description": "Token prefix parsing logic (CB_/GB_ string prefix checks) is duplicated in at least three locations: OrdermanagementImpl.getOrderType(), CreateOrderUseCase.createOrder(), and getBookingOrGuestEmail(). This creates a maintenance risk where changing the token format requires multiple code sites to be updated in sync.",
+      "impact": "MEDIUM",
+      "estimated_fix_time": 2
+    },
+    {
+      "id": "TD-004",
+      "debt_type": "Code Debt",
+      "description": "Email composition in Java (BookingmanagementImpl) uses imperative StringBuilder concatenation with hardcoded plain-text formatting, spread across 6+ private methods. The NestJS backend uses Handlebars email templates (a superior approach). The Java backend approach is fragile, non-localizable, and impossible to style or brand.",
+      "impact": "MEDIUM",
+      "estimated_fix_time": 8
+    },
+    {
+      "id": "TD-005",
+      "debt_type": "Design Debt",
+      "description": "Three backend implementations (Java, Node.js, .NET) implement the same domain without a shared OpenAPI contract. Any change to the API must be manually synchronized across all implementations, and the Angular frontend must be manually verified against each backend. This multiplies maintenance cost by 3x for any API change.",
+      "impact": "HIGH",
+      "estimated_fix_time": 20
+    },
+    {
+      "id": "TD-006",
+      "debt_type": "Code Debt",
+      "description": "findOrderCtos and findBookingCtos in Java return null instead of an empty Page when no results are found. This forces all callers to perform null checks and contradicts Spring Data's Page API convention. The pattern is consistently wrong across both management implementations.",
+      "impact": "MEDIUM",
+      "estimated_fix_time": 1
+    },
+    {
+      "id": "TD-007",
+      "debt_type": "Infrastructure Debt",
+      "description": "The hardcoded 'http://localhost' URL in BookingmanagementImpl email links means the application cannot be deployed to any non-localhost environment without code changes. The clientPort @Value injection is environment-specific but the protocol and host are hardcoded, breaking staging and production deployments.",
+      "impact": "HIGH",
+      "estimated_fix_time": 1
+    },
+    {
+      "id": "TD-008",
+      "debt_type": "Code Debt",
+      "description": "Angular FilterCockpit model has commented-out sort field and bookingToken typed incorrectly as 'number'. The interfaces.ts file contains dead commented code and a type mismatch that is silently working only due to JavaScript's loose typing.",
+      "impact": "LOW",
+      "estimated_fix_time": 1
+    },
+    {
+      "id": "TD-009",
+      "debt_type": "Test Debt",
+      "description": "Angular component tests use NO_ERRORS_SCHEMA broadly, which suppresses template errors and allows tests to pass even when template bindings are broken. While expedient, this approach provides false confidence in test coverage since template compilation errors are invisible to the test runner.",
+      "impact": "MEDIUM",
+      "estimated_fix_time": 4
+    }
+  ],
+  "cross_stack_observations": {
+    "consistency_score": 6.5,
+    "notes": [
+      "All three backends implement the CB_/GB_ token routing contract — good consistency in core domain model",
+      "Java uses plain-text StringBuilder email strings; NestJS uses Handlebars templates — inconsistent email approach",
+      "NestJS has use-case unit tests; Java has none — significant test coverage disparity between stacks",
+      "NestJS wraps booking creation in a database transaction; Java and NestJS order creation are not fully atomic",
+      "Angular cockpit components make direct HTTP calls via service without NgRx state, inconsistent with other modules",
+      "Error handling approaches differ: Java throws domain exceptions caught by Devon4j; NestJS uses exception filters; Angular only shows generic snack bar messages without actionable information"
+    ]
+  }
+}

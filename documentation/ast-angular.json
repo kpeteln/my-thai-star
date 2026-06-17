@@ -1,0 +1,844 @@
+{
+  "ast_version": "1.0",
+  "language": "typescript",
+  "framework": "Angular 12+ / NgRx",
+  "application": "My Thai Star Frontend",
+  "files": [
+    {
+      "file_path": "src/app/app.module.ts",
+      "language": "typescript",
+      "imports": [
+        "HttpClient, HttpClientModule from @angular/common/http",
+        "NgModule from @angular/core",
+        "BrowserModule from @angular/platform-browser",
+        "BrowserAnimationsModule from @angular/platform-browser/animations",
+        "ServiceWorkerModule from @angular/service-worker",
+        "EffectsModule from @ngrx/effects",
+        "RouterStateSerializer, StoreRouterConnectingModule, DefaultRouterStateSerializer from @ngrx/router-store",
+        "StoreModule from @ngrx/store",
+        "StoreDevtoolsModule from @ngrx/store-devtools",
+        "NgxElectronModule from ngx-electron",
+        "AppRoutingModule from ./app-routing.module",
+        "AppComponent from ./app.component",
+        "BookTableModule from ./book-table/book-table.module",
+        "WaiterCockpitModule from ./cockpit-area/cockpit.module",
+        "ConfigModule from ./core/config/config.module",
+        "CoreModule from ./core/core.module",
+        "EmailConfirmationModule from ./email-confirmations/email-confirmations.module",
+        "HeaderModule from ./header/header.module",
+        "HomeModule from ./home/home.module",
+        "MenuModule from ./menu/menu.module",
+        "WebviewDirective from ./shared/directives/webview.directive",
+        "SidenavModule from ./sidenav/sidenav.module",
+        "CustomSerializer, effects, reducers from ./store",
+        "UserAreaModule from ./user-area/user-area.module"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "NgModule",
+          "name": "AppModule",
+          "modifiers": ["export"],
+          "annotations": ["@NgModule"],
+          "ngModuleMetadata": {
+            "imports": [
+              "BrowserModule", "BrowserAnimationsModule", "ConfigModule", "NgxElectronModule",
+              "HeaderModule", "HomeModule", "MenuModule", "BookTableModule", "SidenavModule",
+              "WaiterCockpitModule", "UserAreaModule", "CoreModule", "EmailConfirmationModule",
+              "ServiceWorkerModule.register('./ngsw-worker.js', { enabled: environment.production })",
+              "AppRoutingModule",
+              "StoreModule.forRoot(reducers, { runtimeChecks: { strictStateImmutability: true, strictActionImmutability: true } })",
+              "EffectsModule.forRoot(effects)",
+              "StoreRouterConnectingModule.forRoot({ serializer: DefaultRouterStateSerializer })",
+              "!environment.production ? StoreDevtoolsModule.instrument() : []",
+              "HttpClientModule"
+            ],
+            "providers": ["{ provide: RouterStateSerializer, useClass: CustomSerializer }"],
+            "declarations": ["AppComponent", "WebviewDirective"],
+            "bootstrap": ["AppComponent"]
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/app-routing.module.ts",
+      "language": "typescript",
+      "imports": [
+        "NgModule from @angular/core",
+        "RouterModule, Routes from @angular/router",
+        "BookTableComponent from ./book-table/container/book-table/book-table.component",
+        "OrderCockpitComponent from ./cockpit-area/order-cockpit/order-cockpit.component",
+        "ReservationCockpitComponent from ./cockpit-area/reservation-cockpit/reservation-cockpit.component",
+        "AuthGuardService from ./core/authentication/auth-guard.service",
+        "HomeComponent from ./home/container/home/home.component",
+        "MenuComponent from ./menu/container/menu.component"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "NgModule",
+          "name": "AppRoutingModule",
+          "modifiers": ["export"],
+          "routeTable": [
+            { "path": "restaurant", "component": "HomeComponent", "pathMatch": "full" },
+            { "path": "menu", "component": "MenuComponent" },
+            { "path": "bookTable", "component": "BookTableComponent" },
+            { "path": "booking/:action/:token", "component": "EmailConfirmationsComponent" },
+            { "path": "orders", "component": "OrderCockpitComponent", "canActivate": ["AuthGuardService"] },
+            { "path": "reservations", "component": "ReservationCockpitComponent", "canActivate": ["AuthGuardService"] },
+            { "path": "prediction", "component": "NotSupportedComponent", "canActivate": ["AuthGuardService"] },
+            { "path": "clustering", "component": "NotSupportedComponent", "canActivate": ["AuthGuardService"] },
+            { "path": "", "redirectTo": "/restaurant", "pathMatch": "full" },
+            { "path": "**", "component": "NotFoundComponent" }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/book-table/book-table.module.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "NgModule",
+          "name": "BookTableModule",
+          "modifiers": ["export"],
+          "annotations": ["@NgModule"],
+          "ngModuleMetadata": {
+            "imports": [
+              "CommonModule", "ReactiveFormsModule", "SharedModule", "HttpClientModule",
+              "TranslocoRootModule", "CoreModule",
+              "StoreModule.forFeature('bookTable', reducers)",
+              "EffectsModule.forFeature(effects)"
+            ],
+            "providers": ["BookTableService", "WindowService", "SnackBarService"],
+            "declarations": ["InvitationDialogComponent", "BookTableComponent", "BookTableDialogComponent"],
+            "exports": ["BookTableComponent"]
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/book-table/container/book-table/book-table.component.ts",
+      "language": "typescript",
+      "imports": [
+        "Component, OnInit from @angular/core",
+        "AbstractControl, FormControl, FormGroup, Validators from @angular/forms",
+        "MatCheckbox from @angular/material/checkbox",
+        "MatChipInputEvent from @angular/material/chips",
+        "MatDialog from @angular/material/dialog",
+        "BookingInfo from ../../../shared/backend-models/interfaces",
+        "last from lodash",
+        "moment from moment",
+        "SnackBarService from ../../../core/snack-bar/snack-bar.service",
+        "WindowService from ../../../core/window/window.service",
+        "emailValidator from ../../../shared/directives/email-validator.directive",
+        "BookTableDialogComponent from ../../components/book-table-dialog/book-table-dialog.component",
+        "InvitationDialogComponent from ../../components/invitation-dialog/invitation-dialog.component",
+        "TranslocoService from @ngneat/transloco",
+        "Title from @angular/platform-browser"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration",
+          "name": "BookTableComponent",
+          "modifiers": ["export"],
+          "annotations": [
+            { "name": "@Component", "parameters": {
+              "selector": "app-public-book-table",
+              "templateUrl": "./book-table.component.html",
+              "styleUrls": ["./book-table.component.scss"]
+            } }
+          ],
+          "implements": ["OnInit"],
+          "fields": [
+            { "name": "invitationModel", "type": "string[]", "initialValue": "[]" },
+            { "name": "minDate", "type": "Date", "initialValue": "new Date()" },
+            { "name": "bookForm", "type": "FormGroup" },
+            { "name": "invitationForm", "type": "FormGroup" },
+            { "name": "REGEXP_EMAIL", "type": "RegExp" },
+            { "name": "reservationInfo", "type": "BookingInfo" }
+          ],
+          "constructor": {
+            "parameters": [
+              { "name": "window", "type": "WindowService", "modifiers": ["private"] },
+              { "name": "translocoService", "type": "TranslocoService", "modifiers": ["private"] },
+              { "name": "snackBarService", "type": "SnackBarService", "modifiers": ["private"] },
+              { "name": "dialog", "type": "MatDialog", "modifiers": ["private"] },
+              { "name": "title", "type": "Title" }
+            ],
+            "body": [
+              { "type": "MethodInvocation", "target": "title", "methodName": "setTitle", "arguments": ["'Book a table'"] }
+            ]
+          },
+          "methods": [
+            {
+              "name": "ngOnInit", "modifiers": ["public"], "returnType": "void", "parameters": [],
+              "body": [
+                { "type": "VariableDeclaration", "name": "booking", "variableType": "BookingInfo.booking",
+                  "value": { "type": "MemberAccess", "target": "this.reservationInfo", "member": "booking" } },
+                { "type": "Assignment", "variable": "this.invitationForm", "value": { "type": "ObjectCreation", "className": "FormGroup",
+                  "arguments": [{
+                    "bookingDate": "new FormControl(booking.bookingDate, Validators.required)",
+                    "name": "new FormControl(booking.name, Validators.required)",
+                    "email": "new FormControl(booking.email, [Validators.required, Validators.pattern(this.REGEXP_EMAIL)])",
+                    "invitedGuests": "new FormControl(this.invitationModel)"
+                  }] } },
+                { "type": "Assignment", "variable": "this.bookForm", "value": { "type": "ObjectCreation", "className": "FormGroup",
+                  "arguments": [{
+                    "bookingDate": "new FormControl(booking.bookingDate, Validators.required)",
+                    "name": "new FormControl(booking.name, Validators.required)",
+                    "email": "new FormControl(booking.email, [Validators.required, Validators.pattern(this.REGEXP_EMAIL)])",
+                    "assistants": "new FormControl(booking.assistants, [Validators.required, Validators.min(1), Validators.max(8)])"
+                  }] } },
+                { "type": "MethodInvocation", "methodName": "getFirstDayWeek", "arguments": [] }
+              ]
+            },
+            {
+              "name": "showBookTableDialog", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "checkbox", "type": "MatCheckbox" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.dialog", "methodName": "open",
+                  "arguments": ["BookTableDialogComponent", "{ width: this.window.responsiveWidth(), data: this.bookForm.value }"] },
+                { "type": "MethodInvocation", "methodName": ".afterClosed().subscribe",
+                  "arguments": [{ "type": "LambdaExpression", "parameters": ["res: boolean"],
+                    "body": [
+                      { "type": "IfStatement",
+                        "condition": { "type": "VariableReference", "name": "res" },
+                        "thenBlock": [
+                          { "type": "MethodInvocation", "target": "this.bookForm", "methodName": "reset", "arguments": [] },
+                          { "type": "Assignment", "variable": "checkbox.checked", "value": { "type": "Literal", "value": "false" } }
+                        ], "elseBlock": [] }
+                    ] }] }
+              ]
+            },
+            {
+              "name": "showInviteDialog", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "checkbox", "type": "MatCheckbox" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.dialog", "methodName": "open",
+                  "arguments": ["InvitationDialogComponent", "{ width: this.window.responsiveWidth(), data: this.invitationForm.value }"] },
+                { "type": "MethodInvocation", "methodName": ".afterClosed().subscribe",
+                  "arguments": [{ "type": "LambdaExpression", "parameters": ["res: boolean"],
+                    "body": [
+                      { "type": "IfStatement",
+                        "condition": { "type": "VariableReference", "name": "res" },
+                        "thenBlock": [
+                          { "type": "MethodInvocation", "target": "this.invitationForm", "methodName": "reset", "arguments": [] },
+                          { "type": "Assignment", "variable": "this.invitationModel", "value": { "type": "Literal", "value": "[]" } },
+                          { "type": "Assignment", "variable": "checkbox.checked", "value": { "type": "Literal", "value": "false" } }
+                        ], "elseBlock": [] }
+                    ] }] }
+              ]
+            },
+            {
+              "name": "validateEmail", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "event", "type": "MatChipInputEvent" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.invitationModel", "methodName": "push", "arguments": ["event.value"] },
+                { "type": "Assignment", "variable": "event.input.value", "value": { "type": "Literal", "value": "''" } },
+                { "type": "IfStatement",
+                  "condition": { "type": "UnaryExpression", "operator": "!",
+                    "operand": { "type": "MethodInvocation", "methodName": "emailValidator", "arguments": ["last(this.invitationModel)"] } },
+                  "thenBlock": [
+                    { "type": "MethodInvocation", "target": "this.invitationModel", "methodName": "pop", "arguments": [] },
+                    { "type": "MethodInvocation", "target": "this.snackBarService", "methodName": "openSnack",
+                      "arguments": ["this.translocoService.translate('bookTable.formErrors.emailFormat')", "1000", "'red'"] }
+                  ], "elseBlock": [] }
+              ]
+            },
+            {
+              "name": "removeInvite", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "invite", "type": "string" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "index", "variableType": "number",
+                  "value": { "type": "MethodInvocation", "target": "this.invitationModel", "methodName": "indexOf", "arguments": ["invite"] } },
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": ">=",
+                    "left": { "type": "VariableReference", "name": "index" }, "right": { "type": "Literal", "value": "0" } },
+                  "thenBlock": [{ "type": "MethodInvocation", "target": "this.invitationModel", "methodName": "splice", "arguments": ["index", "1"] }],
+                  "elseBlock": [] }
+              ]
+            },
+            {
+              "name": "getFirstDayWeek", "modifiers": ["public"], "returnType": "string", "parameters": [],
+              "body": [
+                { "type": "MethodInvocation", "target": "moment", "methodName": "locale", "arguments": ["this.translocoService.getActiveLang()"] },
+                { "type": "VariableDeclaration", "name": "firstDay", "variableType": "string",
+                  "value": { "type": "MethodInvocation", "target": "moment(moment().weekday(0))", "methodName": "format", "arguments": ["'d'"] } },
+                { "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "firstDay" } }
+              ]
+            }
+          ],
+          "getters": [
+            { "name": "name", "returnType": "AbstractControl",
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookForm", "methodName": "get", "arguments": ["'name'"] } }] },
+            { "name": "email", "returnType": "AbstractControl",
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookForm", "methodName": "get", "arguments": ["'email'"] } }] },
+            { "name": "assistants", "returnType": "AbstractControl",
+              "body": [{ "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.bookForm", "methodName": "get", "arguments": ["'assistants'"] } }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/book-table/services/book-table.service.ts",
+      "language": "typescript",
+      "imports": [
+        "HttpClient from @angular/common/http",
+        "Injectable from @angular/core",
+        "BookingInfo from app/shared/backend-models/interfaces",
+        "map from lodash",
+        "Observable from rxjs",
+        "exhaustMap from rxjs/operators",
+        "ConfigService from ../../core/config/config.service",
+        "BookingResponse from ../models/booking-response.model",
+        "Booking from ../models/booking.model"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration",
+          "name": "BookTableService",
+          "modifiers": ["export"],
+          "annotations": [{ "name": "@Injectable" }],
+          "fields": [
+            { "name": "booktableRestPath", "type": "string", "modifiers": ["private","readonly"], "initialValue": "'bookingmanagement/v1/booking'" },
+            { "name": "restServiceRoot$", "type": "Observable<string>", "modifiers": ["private","readonly"],
+              "initialValue": "this.config.getRestServiceRoot()" }
+          ],
+          "constructor": {
+            "parameters": [
+              { "name": "http", "type": "HttpClient", "modifiers": ["private"] },
+              { "name": "config", "type": "ConfigService", "modifiers": ["private"] }
+            ]
+          },
+          "methods": [
+            {
+              "name": "postBooking", "modifiers": ["public"], "returnType": "Observable<BookingResponse>",
+              "parameters": [{ "name": "bookInfo", "type": "BookingInfo" }],
+              "body": [
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "target": "this.restServiceRoot$", "methodName": "pipe",
+                  "arguments": [{
+                    "type": "MethodInvocation", "methodName": "exhaustMap",
+                    "arguments": [{ "type": "LambdaExpression", "parameters": ["restServiceRoot"],
+                      "body": [{ "type": "ReturnStatement", "value": {
+                        "type": "MethodInvocation", "target": "this.http", "methodName": "post",
+                        "arguments": ["`${restServiceRoot}${this.booktableRestPath}`", "bookInfo"],
+                        "typeArguments": ["BookingResponse"]
+                      } }] }]
+                  }]
+                } }
+              ]
+            },
+            {
+              "name": "composeBooking", "modifiers": ["public"], "returnType": "Booking",
+              "parameters": [{ "name": "invitationData", "type": "any" }, { "name": "type", "type": "number" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "composedBooking", "variableType": "Booking",
+                  "value": { "type": "ObjectLiteral", "properties": {
+                    "booking": {
+                      "bookingDate": "invitationData.bookingDate",
+                      "name": "invitationData.name",
+                      "email": "invitationData.email",
+                      "bookingType": "type"
+                    }
+                  } } },
+                { "type": "IfStatement",
+                  "condition": { "type": "VariableReference", "name": "type" },
+                  "thenBlock": [
+                    { "type": "Assignment", "variable": "composedBooking.invitedGuests",
+                      "value": { "type": "MethodInvocation", "methodName": "map",
+                        "arguments": ["invitationData.invitedGuests", "(email: string) => ({ email })"] } }
+                  ],
+                  "elseBlock": [
+                    { "type": "Assignment", "variable": "composedBooking.booking.assistants",
+                      "value": { "type": "MemberAccess", "target": "invitationData", "member": "assistants" } }
+                  ] },
+                { "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "composedBooking" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/menu/menu.module.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "NgModule", "name": "MenuModule", "modifiers": ["export"],
+          "annotations": ["@NgModule"],
+          "ngModuleMetadata": {
+            "imports": [
+              "CommonModule", "CoreModule", "TranslocoModule", "HttpClientModule",
+              "FormsModule", "ReactiveFormsModule",
+              "StoreModule.forFeature('menu', reducers)",
+              "EffectsModule.forFeature(effects)"
+            ],
+            "providers": ["MenuService"],
+            "declarations": [
+              "MenuComponent", "MenuCardComponent", "MenuFiltersComponent",
+              "FilterSearchComponent", "FilterSortComponent", "FilterCheckboxesComponent",
+              "MenuCardCommentsComponent", "MenuCardDetailsComponent"
+            ],
+            "exports": ["MenuComponent"]
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/menu/services/menu.service.ts",
+      "language": "typescript",
+      "imports": [
+        "HttpClient from @angular/common/http",
+        "Injectable from @angular/core",
+        "Filter, Pageable from app/shared/backend-models/interfaces",
+        "Observable from rxjs",
+        "exhaustMap from rxjs/operators",
+        "uuid from uuid",
+        "ConfigService from ../../core/config/config.service",
+        "DishView from ../../shared/view-models/interfaces",
+        "FilterFormData from ../components/menu-filters/menu-filters.component",
+        "Order from ../models/order.model"
+      ],
+      "moduleLevel": [
+        { "type": "ConstantDeclaration", "name": "categoryNameToServerId",
+          "value": "Object.freeze({ mainDishes: 0, starters: 1, desserts: 2, noodle: 3, rice: 4, curry: 5, vegan: 6, vegetarian: 7, favourites: 8 })" }
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "MenuService", "modifiers": ["export"],
+          "annotations": [{ "name": "@Injectable" }],
+          "fields": [
+            { "name": "restServiceRoot$", "type": "Observable<string>", "modifiers": ["private","readonly"],
+              "initialValue": "this.config.getRestServiceRoot()" },
+            { "name": "filtersRestPath", "type": "string", "modifiers": ["private","readonly"],
+              "initialValue": "'dishmanagement/v1/dish/search'" }
+          ],
+          "constructor": {
+            "parameters": [
+              { "name": "http", "type": "HttpClient", "modifiers": ["private"] },
+              { "name": "config", "type": "ConfigService", "modifiers": ["private"] }
+            ]
+          },
+          "methods": [
+            {
+              "name": "menuToOrder", "modifiers": ["public"], "returnType": "Order",
+              "parameters": [{ "name": "menu", "type": "DishView" }],
+              "body": [
+                { "type": "ReturnStatement", "value": { "type": "ObjectLiteral", "properties": {
+                  "id": "uuid.v4()",
+                  "details": {
+                    "dish": "menu.dish",
+                    "extras": "menu.extras",
+                    "orderLine": { "amount": "1", "comment": "''" }
+                  }
+                } } }
+              ]
+            },
+            {
+              "name": "composeFilters", "modifiers": ["public"], "returnType": "Filter",
+              "parameters": [{ "name": "pageable", "type": "Pageable" }, { "name": "filters", "type": "FilterFormData" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "categories", "variableType": "{ id: string }[]",
+                  "value": { "type": "MethodInvocation", "target": "Object.keys(filters.categories)",
+                    "methodName": "filter(...).map",
+                    "arguments": ["(categoryKey: string) => ({ id: categoryNameToServerId[categoryKey].toString() })"] } },
+                { "type": "IfStatement",
+                  "condition": { "type": "UnaryExpression", "operator": "!",
+                    "operand": { "type": "MemberAccess", "target": "filters.sort", "member": "property" } },
+                  "thenBlock": [
+                    { "type": "Assignment", "variable": "filters.sort", "value": { "type": "Literal", "value": "undefined" } },
+                    { "type": "Assignment", "variable": "pageable.sort", "value": { "type": "Literal", "value": "undefined" } }
+                  ], "elseBlock": [] },
+                { "type": "ReturnStatement", "value": { "type": "ObjectLiteral", "properties": {
+                  "categories": "categories",
+                  "searchBy": "filters.searchBy",
+                  "pageable": "pageable",
+                  "maxPrice": "filters.maxPrice",
+                  "minLikes": "filters.minLikes",
+                  "isFav": "undefined"
+                } } }
+              ]
+            },
+            {
+              "name": "getDishes", "modifiers": ["public"],
+              "returnType": "Observable<{ pageable: Pageable; content: DishView[] }>",
+              "parameters": [{ "name": "filters", "type": "Filter" }],
+              "body": [
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "target": "this.restServiceRoot$", "methodName": "pipe",
+                  "arguments": [{
+                    "type": "MethodInvocation", "methodName": "exhaustMap",
+                    "arguments": [{ "type": "LambdaExpression", "parameters": ["restServiceRoot"],
+                      "body": [{ "type": "ReturnStatement", "value": {
+                        "type": "MethodInvocation", "target": "this.http", "methodName": "post",
+                        "arguments": ["`${restServiceRoot}${this.filtersRestPath}`", "filters"]
+                      } }] }]
+                  }]
+                } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/cockpit-area/cockpit.module.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "NgModule", "name": "WaiterCockpitModule", "modifiers": ["export"],
+          "annotations": ["@NgModule"],
+          "ngModuleMetadata": {
+            "imports": ["CommonModule", "HttpClientModule", "TranslocoRootModule", "CoreModule", "FormsModule", "ReactiveFormsModule"],
+            "providers": ["WaiterCockpitService", "WindowService", "PredictionService", "ClusteringService"],
+            "declarations": [
+              "ReservationCockpitComponent", "OrderCockpitComponent",
+              "ReservationDialogComponent", "OrderDialogComponent",
+              "PredictionCockpitComponent", "ClusteringCockpitComponent"
+            ],
+            "exports": [
+              "ReservationCockpitComponent", "OrderCockpitComponent",
+              "PredictionCockpitComponent", "ClusteringCockpitComponent"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/cockpit-area/reservation-cockpit/reservation-cockpit.component.ts",
+      "language": "typescript",
+      "imports": [
+        "WaiterCockpitService from ../services/waiter-cockpit.service",
+        "BookingResponse, DataColumn, ReservationView from ../../shared/view-models/interfaces",
+        "Component, OnInit, ViewChild, OnDestroy from @angular/core",
+        "MatDialog from @angular/material/dialog",
+        "PageEvent, MatPaginator from @angular/material/paginator",
+        "Sort from @angular/material/sort",
+        "ReservationDialogComponent from ./reservation-dialog/reservation-dialog.component",
+        "FilterCockpit, Pageable, Sort as Sortable from ../../shared/backend-models/interfaces",
+        "moment from moment",
+        "ConfigService from ../../core/config/config.service",
+        "TranslocoService from @ngneat/transloco",
+        "Subscription from rxjs",
+        "FormGroup from @angular/forms"
+      ],
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "ReservationCockpitComponent", "modifiers": ["export"],
+          "annotations": [
+            { "name": "@Component", "parameters": {
+              "selector": "app-cockpit-reservation-cockpit",
+              "templateUrl": "./reservation-cockpit.component.html",
+              "styleUrls": ["./reservation-cockpit.component.scss"]
+            } }
+          ],
+          "implements": ["OnInit", "OnDestroy"],
+          "fields": [
+            { "name": "sorting", "type": "Sortable[]", "modifiers": ["private"], "initialValue": "[]" },
+            { "name": "translocoSubscription", "type": "Subscription", "modifiers": ["private"], "initialValue": "Subscription.EMPTY" },
+            { "name": "pageable", "type": "Pageable", "initialValue": "{ pageSize: 8, pageNumber: 0 }" },
+            { "name": "pagingBar", "type": "MatPaginator", "annotations": ["@ViewChild('pagingBar', { static: true })"] },
+            { "name": "reservations", "type": "ReservationView[]", "initialValue": "[]" },
+            { "name": "totalReservations", "type": "number" },
+            { "name": "columns", "type": "DataColumn[]" },
+            { "name": "displayedColumns", "type": "string[]", "initialValue": "['bookingDate', 'email', 'bookingToken']" },
+            { "name": "pageSizes", "type": "number[]" },
+            { "name": "filters", "type": "FilterCockpit", "initialValue": "{ bookingDate: undefined, email: undefined, bookingToken: undefined }" }
+          ],
+          "constructor": {
+            "parameters": [
+              { "name": "waiterCockpitService", "type": "WaiterCockpitService", "modifiers": ["private"] },
+              { "name": "translocoService", "type": "TranslocoService", "modifiers": ["private"] },
+              { "name": "dialog", "type": "MatDialog", "modifiers": ["private"] },
+              { "name": "configService", "type": "ConfigService", "modifiers": ["private"] }
+            ],
+            "body": [
+              { "type": "Assignment", "variable": "this.pageSizes",
+                "value": { "type": "MethodInvocation", "target": "this.configService.getValues()", "member": "pageSizes" } }
+            ]
+          },
+          "methods": [
+            {
+              "name": "ngOnInit", "modifiers": ["public"], "returnType": "void", "parameters": [],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.translocoService.langChanges$", "methodName": "subscribe",
+                  "arguments": [{ "type": "LambdaExpression", "parameters": ["event: string"],
+                    "body": [
+                      { "type": "MethodInvocation", "methodName": "this.setTableHeaders", "arguments": ["event"] },
+                      { "type": "MethodInvocation", "target": "moment", "methodName": "locale",
+                        "arguments": ["this.translocoService.getActiveLang()"] }
+                    ] }] },
+                { "type": "MethodInvocation", "methodName": "this.applyFilters", "arguments": [] }
+              ]
+            },
+            {
+              "name": "applyFilters", "modifiers": ["public"], "returnType": "void", "parameters": [],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.waiterCockpitService", "methodName": "getReservations",
+                  "arguments": ["this.pageable", "this.sorting", "this.filters"] },
+                { "type": "MethodInvocation", "methodName": ".subscribe",
+                  "arguments": [{ "type": "LambdaExpression", "parameters": ["data: BookingResponse"],
+                    "body": [
+                      { "type": "IfStatement",
+                        "condition": { "type": "UnaryExpression", "operator": "!",
+                          "operand": { "type": "VariableReference", "name": "data" } },
+                        "thenBlock": [{ "type": "Assignment", "variable": "this.reservations", "value": { "type": "Literal", "value": "[]" } }],
+                        "elseBlock": [{ "type": "Assignment", "variable": "this.reservations",
+                          "value": { "type": "MemberAccess", "target": "data", "member": "content" } }] },
+                      { "type": "Assignment", "variable": "this.totalReservations",
+                        "value": { "type": "MemberAccess", "target": "data", "member": "totalElements" } }
+                    ] }] }
+              ]
+            },
+            {
+              "name": "sort", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "sortEvent", "type": "Sort" }],
+              "body": [
+                { "type": "Assignment", "variable": "this.sorting", "value": { "type": "Literal", "value": "[]" } },
+                { "type": "IfStatement",
+                  "condition": { "type": "MemberAccess", "target": "sortEvent", "member": "direction" },
+                  "thenBlock": [
+                    { "type": "MethodInvocation", "target": "this.sorting", "methodName": "push",
+                      "arguments": ["{ property: sortEvent.active, direction: '' + sortEvent.direction }"] }
+                  ], "elseBlock": [] },
+                { "type": "MethodInvocation", "methodName": "this.applyFilters", "arguments": [] }
+              ]
+            },
+            {
+              "name": "selected", "modifiers": ["public"], "returnType": "void",
+              "parameters": [{ "name": "selection", "type": "ReservationView" }],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.dialog", "methodName": "open",
+                  "arguments": ["ReservationDialogComponent", "{ width: '80%', data: selection }"] }
+              ]
+            },
+            {
+              "name": "ngOnDestroy", "modifiers": ["public"], "returnType": "void", "parameters": [],
+              "body": [
+                { "type": "MethodInvocation", "target": "this.translocoSubscription", "methodName": "unsubscribe", "arguments": [] }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/cockpit-area/services/waiter-cockpit.service.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "WaiterCockpitService", "modifiers": ["export"],
+          "annotations": [{ "name": "@Injectable" }],
+          "fields": [
+            { "name": "getReservationsRestPath", "type": "string", "modifiers": ["private","readonly"],
+              "initialValue": "'bookingmanagement/v1/booking/search'" },
+            { "name": "getOrdersRestPath", "type": "string", "modifiers": ["private","readonly"],
+              "initialValue": "'ordermanagement/v1/order/search'" },
+            { "name": "filterOrdersRestPath", "type": "string", "modifiers": ["private","readonly"],
+              "initialValue": "'ordermanagement/v1/order/search'" },
+            { "name": "restServiceRoot$", "type": "Observable<string>", "modifiers": ["private","readonly"] }
+          ],
+          "constructor": {
+            "parameters": [
+              { "name": "http", "type": "HttpClient", "modifiers": ["private"] },
+              { "name": "priceCalculator", "type": "PriceCalculatorService", "modifiers": ["private"] },
+              { "name": "config", "type": "ConfigService", "modifiers": ["private"] }
+            ]
+          },
+          "methods": [
+            {
+              "name": "getOrders", "modifiers": ["public"], "returnType": "Observable<OrderResponse>",
+              "parameters": [
+                { "name": "pageable", "type": "Pageable" },
+                { "name": "sorting", "type": "Sort[]" },
+                { "name": "filters", "type": "FilterCockpit" }
+              ],
+              "body": [
+                { "type": "VariableDeclaration", "name": "path", "variableType": "string" },
+                { "type": "Assignment", "variable": "filters.pageable", "value": { "type": "VariableReference", "name": "pageable" } },
+                { "type": "Assignment", "variable": "filters.pageable.sort", "value": { "type": "VariableReference", "name": "sorting" } },
+                { "type": "IfStatement",
+                  "condition": { "type": "BinaryExpression", "operator": "||",
+                    "left": { "type": "MemberAccess", "target": "filters", "member": "email" },
+                    "right": { "type": "MemberAccess", "target": "filters", "member": "bookingToken" } },
+                  "thenBlock": [{ "type": "Assignment", "variable": "path", "value": { "type": "VariableReference", "name": "this.filterOrdersRestPath" } }],
+                  "elseBlock": [
+                    { "type": "DeleteExpression", "target": "filters.email" },
+                    { "type": "DeleteExpression", "target": "filters.bookingToken" },
+                    { "type": "Assignment", "variable": "path", "value": { "type": "VariableReference", "name": "this.getOrdersRestPath" } }
+                  ] },
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "target": "this.restServiceRoot$", "methodName": "pipe",
+                  "arguments": [{ "type": "MethodInvocation", "methodName": "exhaustMap",
+                    "arguments": [{ "type": "LambdaExpression", "parameters": ["restServiceRoot"],
+                      "body": [{ "type": "ReturnStatement", "value": {
+                        "type": "MethodInvocation", "target": "this.http", "methodName": "post",
+                        "arguments": ["`${restServiceRoot}${path}`", "filters"]
+                      } }] }] }]
+                } }
+              ]
+            },
+            {
+              "name": "getReservations", "modifiers": ["public"], "returnType": "Observable<BookingResponse>",
+              "parameters": [
+                { "name": "pageable", "type": "Pageable" },
+                { "name": "sorting", "type": "Sort[]" },
+                { "name": "filters", "type": "FilterCockpit" }
+              ],
+              "body": [
+                { "type": "Assignment", "variable": "filters.pageable", "value": { "type": "VariableReference", "name": "pageable" } },
+                { "type": "Assignment", "variable": "filters.pageable.sort", "value": { "type": "VariableReference", "name": "sorting" } },
+                { "type": "ReturnStatement", "value": {
+                  "type": "MethodInvocation", "target": "this.restServiceRoot$", "methodName": "pipe",
+                  "arguments": [{ "type": "MethodInvocation", "methodName": "exhaustMap",
+                    "arguments": [{ "type": "LambdaExpression", "parameters": ["restServiceRoot"],
+                      "body": [{ "type": "ReturnStatement", "value": {
+                        "type": "MethodInvocation", "target": "this.http", "methodName": "post",
+                        "arguments": ["`${restServiceRoot}${this.getReservationsRestPath}`", "filters"]
+                      } }] }] }]
+                } }
+              ]
+            },
+            {
+              "name": "orderComposer", "modifiers": ["public"], "returnType": "OrderView[]",
+              "parameters": [{ "name": "orderList", "type": "OrderView[]" }],
+              "body": [
+                { "type": "VariableDeclaration", "name": "orders", "variableType": "OrderView[]",
+                  "value": { "type": "MethodInvocation", "methodName": "cloneDeep", "arguments": ["orderList"] } },
+                { "type": "MethodInvocation", "methodName": "map",
+                  "arguments": ["orders", "(o: OrderViewResult) => { o.dish.price = this.priceCalculator.getPrice(o); o.extras = map(o.extras, 'name').join(', '); }"] },
+                { "type": "ReturnStatement", "value": { "type": "VariableReference", "name": "orders" } }
+              ]
+            },
+            {
+              "name": "getTotalPrice", "modifiers": ["public"], "returnType": "number",
+              "parameters": [{ "name": "orderLines", "type": "OrderView[]" }],
+              "body": [
+                { "type": "ReturnStatement", "value": { "type": "MethodInvocation", "target": "this.priceCalculator", "methodName": "getTotalPrice", "arguments": ["orderLines"] } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file_path": "src/app/shared/backend-models/interfaces.ts",
+      "language": "typescript",
+      "typeDeclarations": [
+        {
+          "type": "ClassDeclaration", "name": "Filter", "modifiers": ["export"],
+          "fields": [
+            { "name": "pageable", "type": "Pageable", "optional": true },
+            { "name": "isFav", "type": "boolean" },
+            { "name": "searchBy", "type": "string" },
+            { "name": "maxPrice", "type": "number" },
+            { "name": "minLikes", "type": "number" },
+            { "name": "categories", "type": "{ id: string }[]" }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "FilterCockpit", "modifiers": ["export"],
+          "fields": [
+            { "name": "pageable", "type": "Pageable", "optional": true },
+            { "name": "bookingDate", "type": "string" },
+            { "name": "email", "type": "string" },
+            { "name": "bookingToken", "type": "number" }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "Pageable", "modifiers": ["export"],
+          "fields": [
+            { "name": "pageSize", "type": "number" },
+            { "name": "pageNumber", "type": "number" },
+            { "name": "sort", "type": "Sort[]", "optional": true }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "Sort", "modifiers": ["export"],
+          "fields": [
+            { "name": "property", "type": "string" },
+            { "name": "direction", "type": "string" }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "BookingInfo", "modifiers": ["export"],
+          "fields": [
+            { "name": "booking", "type": "ReservationInfo" },
+            { "name": "invitedGuests", "type": "{ [index: number]: { email: string } }", "optional": true }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "ReservationInfo", "modifiers": ["export"],
+          "fields": [
+            { "name": "bookingDate", "type": "string" },
+            { "name": "name", "type": "string" },
+            { "name": "email", "type": "string" },
+            { "name": "bookingType", "type": "number", "optional": true },
+            { "name": "assistants", "type": "number", "optional": true }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "OrderInfo", "modifiers": ["export"],
+          "fields": [
+            { "name": "orderLine", "type": "OrderLineInfo" },
+            { "name": "extras", "type": "number[]" }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "OrderLineInfo", "modifiers": ["export"],
+          "fields": [
+            { "name": "dishId", "type": "number" },
+            { "name": "amount", "type": "number" },
+            { "name": "comment", "type": "string" }
+          ]
+        },
+        {
+          "type": "ClassDeclaration", "name": "LoginInfo", "modifiers": ["export"],
+          "fields": [
+            { "name": "username", "type": "string" },
+            { "name": "password", "type": "string" },
+            { "name": "role", "type": "string" },
+            { "name": "token", "type": "string", "optional": true }
+          ]
+        }
+      ]
+    }
+  ],
+  "componentTree": {
+    "AppModule": {
+      "routes": {
+        "/restaurant": "HomeComponent",
+        "/menu": "MenuComponent",
+        "/bookTable": "BookTableComponent",
+        "/booking/:action/:token": "EmailConfirmationsComponent",
+        "/orders": "OrderCockpitComponent [AuthGuard]",
+        "/reservations": "ReservationCockpitComponent [AuthGuard]"
+      },
+      "modules": {
+        "BookTableModule": {
+          "components": ["BookTableComponent", "BookTableDialogComponent", "InvitationDialogComponent"],
+          "services": ["BookTableService"],
+          "state": "NgRx (bookTable feature)"
+        },
+        "MenuModule": {
+          "components": ["MenuComponent", "MenuCardComponent", "MenuFiltersComponent", "FilterSearchComponent", "FilterSortComponent", "FilterCheckboxesComponent", "MenuCardCommentsComponent", "MenuCardDetailsComponent"],
+          "services": ["MenuService"],
+          "state": "NgRx (menu feature)"
+        },
+        "WaiterCockpitModule": {
+          "components": ["ReservationCockpitComponent", "OrderCockpitComponent", "PredictionCockpitComponent", "ClusteringCockpitComponent", "ReservationDialogComponent", "OrderDialogComponent"],
+          "services": ["WaiterCockpitService", "PredictionService", "ClusteringService"]
+        }
+      }
+    }
+  },
+  "complexity_metrics": {
+    "total_components": 14,
+    "total_services": 6,
+    "total_modules": 7,
+    "state_management": "NgRx (Store + Effects)",
+    "http_client": "Angular HttpClient with RxJS exhaustMap",
+    "form_management": "ReactiveFormsModule (FormGroup, FormControl)",
+    "design_patterns": ["Module Pattern", "Service Pattern", "Observable/Reactive", "NgRx Store", "Dialog Pattern", "Guard Pattern"]
+  }
+}
